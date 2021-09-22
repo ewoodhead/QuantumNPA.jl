@@ -4,12 +4,30 @@ abstract type Operator end
 
 # Default multiplication rule for operators, which can be specialised.
 #
-# Assumption for the moment: multiplication returns one of the three
-# following things:
-#   1) A pair (x, y) of operators.
-#   2) A single operator x.
-#   3) A number.
-Base.:*(x::Operator, y::Operator) = (x, y)
+# Assumption for the moment: multiplication returns a pair
+#   (c, [ops...])
+# consisting of a coefficient and a possibly empty list of operators.
+#
+# By default we return c = 1 and a list of the same two operators given as
+# inputs, i.e., we just concatenate the operators.
+Base.:*(x::Operator, y::Operator) = (1, [x, y])
+
+# This controls how lists of operators are multiplied.
+# It is not very general at the moment.
+function join_ops(opsx::Array{Operator,1}, opsy::Array{Operator,1})
+    opx = opsx[end]
+    opy = opsy[1]
+    (c, opxy) = opx * opy
+
+    if c == 0
+        return (0, [])
+    end
+
+    ops = vcat(opsx[1:end-1], opxy, opsy[2:end])
+
+    return (c, ops)
+end
+
 Base.show(io::IO, o::Operator) = print_op(io, o)
 
 
@@ -48,26 +66,26 @@ end
 function Base.:*(p::Projector, q::Projector)
     if p.input == q.input
         if p.output == q.output
-            return p
+            return (1, [p])
         else
-            return 0
+            return (0, Array{Projector}())
         end
     else
-        return (p, q)
+        return (1, [p, q])
     end
 end
 
 Base.conj(p::Projector) = p
 
+
+
 struct Monomial
-    coeff::Number
-    word::Array{Tuple{Int64,Array{Operator,1}},1}
+    word::Array{Tuple{Int,Array{Operator,1}},1}
 end
 
-Id = Monomial(1, [])
+Id = Monomial([])
 
 function Base.show(io::IO, m::Monomial)
-    print(io, m.coeff)
     if isempty(m.word)
         print(io, " Id")
     else
@@ -81,32 +99,23 @@ function Base.show(io::IO, m::Monomial)
 end
 
 function Base.conj(m::Monomial)
-    return Monomial(conj(m.coeff),
-                    [(party, reverse!([conj(op) for op in ops]))
-                     for (party, ops) in p.word])
+    return Monomial([(party, reverse!([conj(op) for op in ops]))
+                     for (party, ops) in m])
 end
 
-function Base.:*(x::Number, y::Monomial)
-    coeff = x * y.coeff
-    return (coeff != 0) ? Monomial(coeff, y.word) : 0
-end
-
-Base.:*(x::Monomial, y::Number) = y * x
+Base.:*(x::Number, y::Monomial) = Polynomial(x, y)
+Base.:*(x::Monomial, y::Number) = Polynomial(y, x)
 
 function Base.:*(x::Monomial, y::Monomial)
-    coeff = x.coeff * y.coeff
+    coeff = 1
 
-    
-end
-
-function Base.:*(x::Monomial, y::Monomial)
-    M = length(x.projectors)
+    M = length(x.word)
 
     if M == 0
         return y
     end
 
-    N = length(y.projectors)
+    N = length(y.word)
 
     if N == 0
         return x
@@ -115,30 +124,31 @@ function Base.:*(x::Monomial, y::Monomial)
     j = 1
     k = 1
 
-    projectors = Array{Tuple{Int,Array{Tuple{Int,Int},1}},1}()
+    word = Array{Tuple{Int,Array{Operator,1}},1}()
 
     while j <= N && k <= M
-        (px, oipsx) = x.projectors[j]
-        (py, oipsy) = y.projectors[k]
+        (px, opsx) = x.word[j]
+        (py, opsy) = y.word[k]
 
         if px < py
-            push!(projectors, x.projectors[j])
+            push!(word, x.word[j])
             j += 1
         elseif py < px
-            push!(projectors, y.projectors[k])
+            push!(word, y.word[k])
             k += 1
         else
-            (ox, ix) = oipsx[end]
-            (oy, iy) = oipsy[1]
+            opx = opsx[end]
+            opy = opsy[1]
+            (c, ops) = join_ops(opsx, opsy)
 
-            if ix == iy
-                if ox == oy
-                    push!(projectors, (px, vcat(oipsx, oipsy[2:end])))
-                else
-                    return 0
-                end
-            else
-                push!(projectors, (px, vcat(oipsx, oipsy)))
+            if c == 0
+                return 0
+            end
+
+            coeff *= c
+
+            if !isempty(ops)
+                push!(word, (px, ops))
             end
 
             j += 1
@@ -146,14 +156,15 @@ function Base.:*(x::Monomial, y::Monomial)
         end
     end
 
-    append!(projectors, x.projectors[j:end])
-    append!(projectors, y.projectors[k:end])
+    append!(word, x.word[j:end])
+    append!(word, y.word[k:end])
 
-    return Monomial(projectors)
+    m = Monomial(word)
+
+    return (coeff = 1) ? m : Polynomial(m, word)
 end
 
 
 function projector(party, output, input)
     return Monomial(1, [(party, [Projector(output, input)])])
 end
-
