@@ -55,12 +55,12 @@ struct Projector <: Operator
     input::Int
 end
 
-function print_op(io::IO, p::Projector, party=nothing)
-    if party === nothing
-        @printf io "P%d|%d" p.output p.input
-    else
-        @printf io "P%s%d|%d" party2string(party) p.output p.input
-    end
+function print_op(io::IO, p::Projector)
+    @printf io "P%d|%d" p.output p.input
+end
+
+function print_op(io::IO, p::Projector, party::Int)
+    @printf io "P%s%d|%d" party2string(party) p.output p.input
 end
 
 function Base.:*(p::Projector, q::Projector)
@@ -79,8 +79,29 @@ Base.conj(p::Projector) = p
 
 
 
+struct BFFZ
+    index::Int
+    conj::Bool
+end
+
+function print_op(io::IO, p::BFFZ)
+    @printf io "Z%s%d" (p.conj ? "*" : "") p.index
+end
+
+function print_op(io::IO, p::Projector, party::Int)
+    @printf io "P%s%d|%d" party2string(party) (p.conj ? "*" : "") p.index
+end
+
+Base.conj(p::BFFZ) = BFFZ(p.index, !p.conj)
+
+
+
 struct Monomial
     word::Array{Tuple{Int,Array{Operator,1}},1}
+end
+
+function Monomial(party::Int, operator::Operator)
+    return Monomial([(party, [operator])])
 end
 
 Id = Monomial([])
@@ -165,6 +186,65 @@ function Base.:*(x::Monomial, y::Monomial)
 end
 
 
+
+IndexRange = Union{UnitRange{Int},
+                   StepRange{Int,Int},
+                   Array{Int}}
+
+
+
 function projector(party, output, input)
-    return Monomial(1, [(party, [Projector(output, input)])])
+    return Monomial(party, Projector(output, input))
+end
+
+function projector(party, output::IndexRange, input::Int)
+    return [projector(party, o, input) for o in output]
+end
+
+function projector(party, output::IndexRange, input::IndexRange)
+    return [projector(party, o, i) for o in output, i in input]
+end
+
+
+
+function bffz(party, index, conj=false)
+    return Monomial(party, BFFZ(index, conj))
+end
+
+
+
+struct Polynomial
+    terms::Dict{Monomial,Number}
+end
+
+Polynomial() = Polynomial(Dict{Monomial,Number}())
+
+Polynomial(x::Number) = Polynomial((x != 0) ? Dict(Id => x) : Dict())
+
+Polynomial(x::Monomial) = Polynomial(Dict(x => 1))
+
+Polynomial(x::Polynomial) = x
+
+Polynomial(x::Base.Generator) = Polynomial(Dict(x))
+
+function Base.copy(x::Polynomial)
+    return Polynomial(copy(x.terms))
+end
+
+
+
+Base.iterate(x::Polynomial) = iterate(x.terms)
+Base.iterate(x::Polynomial, state) = iterate(x.terms, state)
+
+function Base.show(io::IO, p::Polynomial)
+    terms = p.terms
+
+    if isempty(terms)
+        print(io, " 0")
+    else
+        for (m, c) in terms
+            print(io, " + (", c, ")")
+            show(io, m)
+        end
+    end
 end
