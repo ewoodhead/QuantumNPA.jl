@@ -155,6 +155,10 @@ function Base.show(io::IO, m::Monomial)
     end
 end
 
+Base.:(==)(x::Number, y::Monomial) = (x == 1) && isempty(y)
+
+Base.:(==)(x::Monomial, y::Number) = (y == 1) && isempty(x)
+
 Base.:(==)(x::Monomial, y::Monomial) = (x.word == y.word)
 
 Base.isless(x::Monomial, y::Monomial) = isless(x.word, y.word)
@@ -221,6 +225,7 @@ end
 
 
 
+
 IndexRange = Union{UnitRange{Int},
                    StepRange{Int,Int},
                    Array{Int}}
@@ -245,6 +250,10 @@ function zbff(party, index, conj=false)
     return Monomial(party, Zbff(index, conj))
 end
 
+function zbff(party, index::IndexRange, conj=false)
+    return [projector(party, a, input) for a in index]
+end
+
 
 
 struct Polynomial
@@ -257,18 +266,32 @@ Polynomial(x::Number) = Polynomial((x != 0) ? Dict(Id => x) : Dict())
 
 Polynomial(x::Monomial) = Polynomial(Dict(x => 1))
 
+function Polynomial(x::Number, y::Monomial)
+    return (x != 0) ? Polynomial(Dict(y => x)) : 0
+end
+
 Polynomial(x::Polynomial) = x
 
 Polynomial(x::Base.Generator) = Polynomial(Dict(x))
 
+Base.iterate(x::Polynomial) = iterate(x.terms)
+Base.iterate(x::Polynomial, state) = iterate(x.terms, state)
+
+function Base.getindex(x::Polynomial, y::Monomial)
+    return (y in keys(x.terms)) ? x.terms[y] : 0
+end
+
+function Base.setindex!(x::Polynomial, y::Number, z::Monomial)
+    if y == 0
+        delete!(x.terms, z)
+    else
+        x.terms[z] = y
+    end
+end
+
 function Base.copy(x::Polynomial)
     return Polynomial(copy(x.terms))
 end
-
-
-
-Base.iterate(x::Polynomial) = iterate(x.terms)
-Base.iterate(x::Polynomial, state) = iterate(x.terms, state)
 
 function Base.show(io::IO, p::Polynomial)
     terms = p.terms
@@ -281,4 +304,159 @@ function Base.show(io::IO, p::Polynomial)
             show(io, m)
         end
     end
+end
+
+function Base.:+(x::Number, y::Monomial)
+    z = Polynomial(y)
+    z += x
+    return z
+end
+
+Base.:+(x::Monomial, y::Number) = y + x
+
+function Base.:+(x::Monomial, y::Monomial)
+    return Polynomial((x != y) ? Dict(x => 1, y => 1) : Dict(x => 2))
+end
+
+function Base.:+(x::Number, y::Polynomial)
+    z = copy(y)
+    z[Id] += x
+    return z
+end
+
+Base.:+(x::Polynomial, y::Number) = y + x
+
+function Base.:+(x::Monomial, y::Polynomial)
+    z = copy(y)
+    z[x] += 1
+    return z
+end
+
+Base.:+(x::Polynomial, y::Monomial) = y + x
+
+function Base.:+(x::Polynomial, y::Polynomial)
+    z = copy(x)
+
+    for (m, c) in y
+        z[m] += c
+    end
+
+    return z
+end
+
+
+
+function Base.:-(x::Number, y::Monomial)
+    z = Polynomial(Dict(y => -1))
+    z += 1
+    return z
+end
+
+function Base.:-(x::Monomial, y::Number)
+    z = Polynomial(x)
+    z[Id] -= y
+    return z
+end
+
+function Base.:-(x::Monomial, y::Monomial)
+    return Polynomial((x != y) ? Dict(x => 1, y => -1) : Dict())
+end
+
+function Base.:-(x::Number, y::Polynomial)
+    z = Polynomial((m, -c) for (m, c) in y)
+    z[Id] += 1
+    return z
+end
+
+function Base.:-(x::Polynomial, y::Number)
+    z = copy(x)
+    z[Id] -= y
+    return z
+end
+
+function Base.:-(x::Monomial, y::Polynomial)
+    z = Polynomial((m, -c) for (m, c) in y)
+    z[x] += 1
+    return z
+end
+
+function Base.:-(x::Polynomial, y::Monomial)
+    z = copy(x)
+    z[y] -= 1
+    return z
+end
+
+function Base.:-(x::Polynomial, y::Polynomial)
+    z = copy(x)
+
+    for (m, c) in y
+        z[m] -= c
+    end
+
+    return z
+end
+
+function scale!(x::Polynomial, y::Number)
+    if y == 1
+        return y
+    end
+
+    if y != 0
+        for (m, c) in x
+            x[m] = y*c
+        end
+    else
+        empty!(y.terms)
+    end
+
+    return y
+end
+
+function Base.:*(x::Number, y::Polynomial)
+    return (x != 0) ? Polynomial((m, x*c) for (m, c) in y) : 0
+end
+
+function Base.:*(x::Polynomial, y::Number)
+    return (y != 0) ? Polynomial((m, y*c) for (m, c) in x) : 0
+end
+
+function Base.:*(x::Monomial, y::Polynomial)
+    return sum(c*(x*m) for (m, c) in y)
+end
+
+function Base.:*(x::Polynomial, y::Monomial)
+    return sum(c*(m*y) for (m, c) in x)
+end
+
+function Base.:*(x::Polynomial, y::Polynomial)
+    return sum((cx*cy)*(mx*my) for (mx, cx) in x for (my, cy) in y)
+end
+
+
+
+Base.:/(x::Monomial, y::Number) = Polynomial(1/y, x)
+
+function Base.:/(x::Polynomial, y::Number)
+    divs = ((m, c/y) for (m, c) in x)
+    return Polynomial((m, c) for (m, c) in divs if c != 0)
+end
+
+
+
+Base.:(==)(x::Number, y::Polynomial) = isempty(y - x)
+Base.:(==)(x::Polynomial, y::Number) = isempty(x - y)
+
+Base.:(==)(x::Monomial, y::Polynomial) = isempty(y - x)
+Base.:(==)(x::Polynomial, y::Monomial) = isempty(x - y)
+
+Base.:(==)(x::Polynomial, y::Polynomial) = isempty(x - y)
+
+
+
+function Base.conj(x::Polynomial)
+    return Polynomial((conj(m), conj(c)) for (m, c) in p)
+end
+
+function Base.adjoint(x::Polynomial)
+    return Polynomial((adjoint(m), adjoint(c)) for (m, c) in p)
 end

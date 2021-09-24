@@ -229,7 +229,9 @@ function Base.:*(x::Number, y::Monomial)
     return (x != 0) ? Polynomial(Dict(y => x)) : 0
 end
 
-Base.:*(x::Monomial, y::Number) = y * x
+function Base.:*(x::Monomial, y::Number)
+    return (y != 0) ? Polynomial(Dict(x => y)) : 0
+end
 
 function Base.:*(x::Monomial, y::Monomial)
     M = length(x.projectors)
