@@ -78,10 +78,15 @@ would simplify `U* U* U U` to `U* U` but not all the way to `1`.
 
 Associating operators in groups to parties is handled by the `Monomial`
 type. At the moment it just contains a list
-```word = [(p1, ops1), (p2, ops2), ...]```
+```
+word = [(p1, ops1), (p2, ops2), ...]
+```
 of parties `p1`, `p2`, etc. and lists of operators `ops1`, `ops2`,
 etc. associated to those parties. For example,
 ```
+julia> p
+ PA1|1 PB3|4 ZE1 ZE2
+
 julia> p.word
 3-element Array{Tuple{Int64,Array{Operator,1}},1}:
  (1, [P1|1])
