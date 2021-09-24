@@ -33,19 +33,19 @@ julia> projector(1,1,1)*projector(1,2,2)
 julia> conj(projector(1,1,1)*projector(1,2,2))
  PA2|2 PA1|1
 
-julia> bffz(1,3)
+julia> zbff(1,3)
  ZA3
 
-julia> bffz(1,3,true)
+julia> zbff(1,3,true)
  ZA*3
 
-julia> conj(bffz(1,3))
+julia> conj(zbff(1,3))
  ZA*3
 
-julia> conj(bffz(1,3,true))
+julia> conj(zbff(1,3,true))
  ZA3
 
-julia> p = projector(1,1,1)*projector(2,3,4)*bffz(5,1)*bffz(5,2)
+julia> p = projector(1,1,1)*projector(2,3,4)*zbff(5,1)*zbff(5,2)
  PA1|1 PB3|4 ZE1 ZE2
 
 julia> conj(p)
@@ -64,8 +64,8 @@ julia> p*conj(p)
 Syntax is
 ```
 projector(party, output, input)
-bffz(party, index)
-bffz(party, index, conj)
+zbff(party, index)
+zbff(party, index, conj)
 ```
 Party numbers start from 1.
 

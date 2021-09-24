@@ -28,7 +28,20 @@ function join_ops(opsx::Array{Operator,1}, opsy::Array{Operator,1})
     return (c, ops)
 end
 
+# Default equality test. This should be specialised for specific types of
+# operators (e.g., projectors), so if this default one is called it means the
+# arguments are not the same type of operator so they are not equal.
+Base.:(==)(x::Operator, y::Operator) = false
+
+
+# Default order. This again should be specialised for operators of the same
+# type so here we just see if the type names are ordered lexicographically.
+function Base.isless(x::Operator, y::Operator)
+    return isless(nameof(typeof(x)), nameof(typeof(y)))
+end
+
 Base.show(io::IO, o::Operator) = print_op(io, o)
+
 
 
 alphabet = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J',
@@ -63,6 +76,15 @@ function print_op(io::IO, p::Projector, party::Int)
     @printf io "P%s%d|%d" party2string(party) p.output p.input
 end
 
+function Base.:(==)(p::Projector, q::Projector)
+    return (p.input == q.input) && (p.output == q.output)
+end
+
+function Base.isless(p::Projector, q::Projector)
+    pi, qi = p.input, q.input
+    return (pi < qi) || ((pi == qi) && (p.output < q.output))
+end
+
 function Base.:*(p::Projector, q::Projector)
     if p.input == q.input
         if p.output == q.output
@@ -79,20 +101,29 @@ Base.conj(p::Projector) = p
 
 
 
-struct BFFZ <: Operator
+struct Zbff <: Operator
     index::Int
     conj::Bool
 end
 
-function print_op(io::IO, p::BFFZ)
+function print_op(io::IO, p::Zbff)
     @printf io "Z%s%d" (p.conj ? "*" : "") p.index
 end
 
-function print_op(io::IO, p::BFFZ, party::Int)
+function print_op(io::IO, p::Zbff, party::Int)
     @printf io "Z%s%s%d" party2string(party) (p.conj ? "*" : "") p.index
 end
 
-Base.conj(p::BFFZ) = BFFZ(p.index, !p.conj)
+function Base.:(==)(p::Zbff, q::Zbff)
+    return (p.index == q.index) && (p.conj == q.conj)
+end
+
+function Base.isless(p::Zbff, q::Zbff)
+    pi, qi = p.index, q.index
+    return (pi < qi) || ((pi == qi) && !p.conj && q.conj)
+end
+
+Base.conj(p::Zbff) = Zbff(p.index, !p.conj)
 
 
 
@@ -206,8 +237,8 @@ end
 
 
 
-function bffz(party, index, conj=false)
-    return Monomial(party, BFFZ(index, conj))
+function zbff(party, index, conj=false)
+    return Monomial(party, Zbff(index, conj))
 end
 
 
