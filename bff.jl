@@ -155,6 +155,10 @@ function Base.show(io::IO, m::Monomial)
     end
 end
 
+Base.:(==)(x::Monomial, y::Monomial) = (x.word == y.word)
+
+Base.isless(x::Monomial, y::Monomial) = isless(x.word, y.word)
+
 function Base.conj(m::Monomial)
     return Monomial([(party, reverse!([conj(op) for op in ops]))
                      for (party, ops) in m])

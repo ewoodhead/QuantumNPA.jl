@@ -93,10 +93,14 @@ julia> p.word
  (2, [P3|4])
  (5, [Z1, Z2])
 ```
-It is assumed that 1) parties are numbered starting from 1, 2) the party
-numbers are in strictly increasing order `p1 < p2 < p3 ...`, and 3) only
-parties that have at least one operator associated with them appear in the
-list. This (mainly the definition of `Monomial` and the function
+It is assumed that:
+
+1. parties are numbered starting from 1,
+2. the party numbers are in strictly increasing order `p1 < p2 < p3 ...`, and
+3. only parties that have at least one operator associated with them appear
+   in the list.
+
+This (mainly the definition of `Monomial` and the function
 `Base.:*(x::Monomial, y::Monomial)`) is the part of the code that would have
 to be modified if we wanted to support, e.g., operators acting on the
 subystems of more than one party.
