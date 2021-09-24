@@ -68,7 +68,7 @@ function Base.:*(p::Projector, q::Projector)
         if p.output == q.output
             return (1, [p])
         else
-            return (0, Array{Projector}())
+            return (0, Array{Projector,1}())
         end
     else
         return (1, [p, q])
@@ -79,7 +79,7 @@ Base.conj(p::Projector) = p
 
 
 
-struct BFFZ
+struct BFFZ <: Operator
     index::Int
     conj::Bool
 end
@@ -88,8 +88,8 @@ function print_op(io::IO, p::BFFZ)
     @printf io "Z%s%d" (p.conj ? "*" : "") p.index
 end
 
-function print_op(io::IO, p::Projector, party::Int)
-    @printf io "P%s%d|%d" party2string(party) (p.conj ? "*" : "") p.index
+function print_op(io::IO, p::BFFZ, party::Int)
+    @printf io "Z%s%s%d" party2string(party) (p.conj ? "*" : "") p.index
 end
 
 Base.conj(p::BFFZ) = BFFZ(p.index, !p.conj)
@@ -106,11 +106,16 @@ end
 
 Id = Monomial([])
 
+Base.iterate(m::Monomial) = iterate(m.word)
+Base.iterate(m::Monomial, state) = iterate(m.word, state)
+
+Base.length(m::Monomial) = length(m.word)
+
 function Base.show(io::IO, m::Monomial)
-    if isempty(m.word)
+    if isempty(m)
         print(io, " Id")
     else
-        for (party, ops) in m.word
+        for (party, ops) in m
             for o in ops
                 print(io, " ")
                 print_op(io, o, party)
@@ -130,15 +135,11 @@ Base.:*(x::Monomial, y::Number) = Polynomial(y, x)
 function Base.:*(x::Monomial, y::Monomial)
     coeff = 1
 
-    M = length(x.word)
-
-    if M == 0
+    if (M = length(x)) == 0
         return y
     end
 
-    N = length(y.word)
-
-    if N == 0
+    if (N = length(y)) == 0
         return x
     end
 
@@ -147,7 +148,7 @@ function Base.:*(x::Monomial, y::Monomial)
 
     word = Array{Tuple{Int,Array{Operator,1}},1}()
 
-    while j <= N && k <= M
+    while (j <= M) && (k <= N)
         (px, opsx) = x.word[j]
         (py, opsy) = y.word[k]
 
@@ -158,8 +159,6 @@ function Base.:*(x::Monomial, y::Monomial)
             push!(word, y.word[k])
             k += 1
         else
-            opx = opsx[end]
-            opy = opsy[1]
             (c, ops) = join_ops(opsx, opsy)
 
             if c == 0
@@ -182,7 +181,7 @@ function Base.:*(x::Monomial, y::Monomial)
 
     m = Monomial(word)
 
-    return (coeff = 1) ? m : Polynomial(m, word)
+    return (coeff == 1) ? m : Polynomial(m, word)
 end
 
 
