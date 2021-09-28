@@ -70,7 +70,9 @@ projector(party, output, input)
 zbff(party, index)
 zbff(party, index, conj)
 ```
-Party numbers start from 1.
+Party numbers start from 1. The parameters `output` and `input` (for
+projectors) and `index` for the Z operators can also be ranges or lists of
+integers.
 
 It is also possible to do general arithmetic with operators, for example:
 ```
@@ -90,7 +92,6 @@ julia> B = [Id - 2*PB[y] for y in 1:2]
 julia> S = A[1]*(B[1] + B[2]) + A[2]*(B[1] - B[2])
  + (-4) PA1|1 + (-4) PA1|2 PB1|2 + (4) PA1|1 PB1|1 + (2) Id + (-4) PB1|1 + (4) PA1|2 PB1|1 + (4) PA1|1 PB1|2
 ```
-
 Note that monomials and polynomials are different types, and it is possible
 to loop over the monomials and (nonzero) coefficients in a polynomial:
 ```
@@ -116,7 +117,7 @@ julia> for (m, c) in S
 ## NPA example
 
 This short example finds what operators appear and where in the NPA moment
-matrix at level 1 for the CHSH problem. It covers only the upper triangular
+matrix at level 2 for the CHSH problem. It covers only the upper triangular
 part and treats monomials and their conjugates as the same.
 ```
 PA, PB = projector(1,1,1:2), projector(2,1,1:2)
@@ -129,7 +130,7 @@ indices = Dict()
 for (i, x) in enumerate(ops)
     for j in i:length(ops)
         y = ops[j]
-        m = x*y
+        m = conj(x)*y
         m = min(m, conj(m))
 
         if m == 0
@@ -165,9 +166,9 @@ Dict{Any,Any} with 17 entries:
    PA1|1 PB1|2             => [(1, 7), (2, 5), (2, 7), (5, 7), (7, 7)]
 ```
 
-The example above uses `min(m, conj(m))` to find which of `m` or its congugate
-comes first lexicographically. It works because comparisons between monomials
-are defined:
+The example above uses `min(m, conj(m))` to find which of `m` or its
+conjugate comes first lexicographically. It works because comparisons between
+monomials are defined:
 ```
 julia> PA[1] == PA[1]*PA[1]
 true
@@ -178,7 +179,8 @@ false
 julia> PA[1] < PA[2]
 true
 ```
-`sort` used above works for the same reason.
+`sort` used above works for the same reason. `==` and `!=` (but not the
+inequalities) can also be used to compare polynomials.
 
 
 ## Internal details

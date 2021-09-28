@@ -209,6 +209,11 @@ Base.zero(m::Monomial) = Polynomial()
 
 
 
+function operators(m::Monomial)
+    return [Monomial(p, o) for (p, ops) in m for o in ops]
+end
+
+
 Base.:*(x::Number, y::Monomial) = Polynomial(x, y)
 Base.:*(x::Monomial, y::Number) = Polynomial(y, x)
 
