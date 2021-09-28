@@ -142,6 +142,8 @@ Base.iterate(m::Monomial, state) = iterate(m.word, state)
 
 Base.length(m::Monomial) = length(m.word)
 
+Base.hash(m::Monomial, h::UInt) = hash(m.word, h)
+
 function Base.show(io::IO, m::Monomial)
     if isempty(m)
         print(io, " Id")
