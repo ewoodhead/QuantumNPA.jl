@@ -1,5 +1,22 @@
 #using Printf
 
+
+
+RNum = Union{Integer,Rational}
+
+"Convert x to integer if it is rational with denominator 1."
+demote(x::Number) = x
+demote(x::RNum) = ((denominator(x) == 1) ? numerator(x) : x)
+
+rmul(x::Number, y::Number) = x * y
+rmul(x::Integer, y::Rational) = demote(x*y)
+rmul(x::Rational, y::Integer) = demote(x*y)
+
+rdiv(x::Number, y::Number) = x / y
+rdiv(x::RNum, y::RNum) = demote(x//y)
+
+
+
 abstract type Operator end
 
 # Default multiplication rule for operators, which can be specialised.
@@ -50,7 +67,7 @@ alphabet = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J',
             'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T',
             'U', 'V', 'W', 'X', 'Y', 'Z']
 
-function party2string(p::Int)
+function party2string(p::Integer)
     base = length(alphabet)
     chars = Array{Char,1}()
 
@@ -66,15 +83,15 @@ end
 
 
 struct Projector <: Operator
-    output::Int
-    input::Int
+    output::Integer
+    input::Integer
 end
 
 function print_op(io::IO, p::Projector)
     @printf io "P%d|%d" p.output p.input
 end
 
-function print_op(io::IO, p::Projector, party::Int)
+function print_op(io::IO, p::Projector, party::Integer)
     @printf io "P%s%d|%d" party2string(party) p.output p.input
 end
 
@@ -106,7 +123,7 @@ Base.conj(p::Projector) = p
 
 
 struct Zbff <: Operator
-    index::Int
+    index::Integer
     conj::Bool
 end
 
@@ -114,7 +131,7 @@ function print_op(io::IO, p::Zbff)
     @printf io "Z%s%d" (p.conj ? "*" : "") p.index
 end
 
-function print_op(io::IO, p::Zbff, party::Int)
+function print_op(io::IO, p::Zbff, party::Integer)
     @printf io "Z%s%s%d" party2string(party) (p.conj ? "*" : "") p.index
 end
 
@@ -134,10 +151,10 @@ Base.conj(p::Zbff) = Zbff(p.index, !p.conj)
 
 
 struct Monomial
-    word::Array{Tuple{Int,Array{Operator,1}},1}
+    word::Array{Tuple{Integer,Array{Operator,1}},1}
 end
 
-function Monomial(party::Int, operator::Operator)
+function Monomial(party::Integer, operator::Operator)
     return Monomial([(party, [operator])])
 end
 
@@ -231,7 +248,7 @@ function Base.:*(x::Monomial, y::Monomial)
     j = 1
     k = 1
 
-    word = Array{Tuple{Int,Array{Operator,1}},1}()
+    word = Array{Tuple{Integer,Array{Operator,1}},1}()
 
     while (j <= M) && (k <= N)
         (px, opsx) = x.word[j]
@@ -272,9 +289,9 @@ end
 
 
 
-IndexRange = Union{UnitRange{Int},
-                   StepRange{Int,Int},
-                   Array{Int}}
+IndexRange = Union{UnitRange{Integer},
+                   StepRange{Integer,Integer},
+                   Array{Integer}}
 
 
 
@@ -282,11 +299,11 @@ function projector(party, output, input)
     return Monomial(party, Projector(output, input))
 end
 
-function projector(party, output::IndexRange, input::Int)
+function projector(party, output::IndexRange, input::Integer)
     return [projector(party, o, input) for o in output]
 end
 
-function projector(party, output::Int, input::IndexRange)
+function projector(party, output::Integer, input::IndexRange)
     return [projector(party, output, i) for i in input]
 end
 
@@ -342,12 +359,10 @@ function Base.copy(x::Polynomial)
 end
 
 function Base.show(io::IO, p::Polynomial)
-    terms = p.terms
-
-    if isempty(terms)
+    if isempty(p)
         print(io, " 0")
     else
-        for (m, c) in terms
+        for (m, c) in sort(p)
             print(io, " + (", c, ")")
             show(io, m)
         end
@@ -355,7 +370,7 @@ function Base.show(io::IO, p::Polynomial)
 end
 
 
-
+"Add y to polynomial x, modifying x."
 function add!(x::Polynomial, y::Number)
     x[Id] += y
     return x
@@ -375,7 +390,7 @@ function add!(x::Polynomial, y::Polynomial)
 end
 
 
-
+"Add y*z to the polynomial x, modifying x. y has to be a number."
 function addmul!(x::Polynomial, y::Number, z::Number)
     x[Id] += y*z
     return x
@@ -395,7 +410,7 @@ function addmul!(x::Polynomial, y::Number, z::Polynomial)
 end
 
 
-
+"Subtract y from polynomial x."
 function sub!(x::Polynomial, y::Number)
     x[Id] -= y
     return x
@@ -415,7 +430,7 @@ function sub!(x::Polynomial, y::Polynomial)
 end
 
 
-
+"Return a polynomial consisting of the sum of items in s."
 function psum(s)
     z = Polynomial()
 
@@ -531,11 +546,51 @@ Base.:(==)(x::Polynomial, y::Polynomial) = isempty(x - y)
 
 
 function Base.conj(x::Polynomial)
-    return Polynomial((conj(m), conj(c)) for (m, c) in p)
+    return Polynomial((conj(m), conj(c)) for (m, c) in x)
 end
 
 function Base.adjoint(x::Polynomial)
-    return Polynomial((adjoint(m), adjoint(c)) for (m, c) in p)
+    return Polynomial((adjoint(m), adjoint(c)) for (m, c) in x)
 end
 
-Base.zero(x::Polynomial) = Polynomial()
+Base.zero(::Polynomial) = Polynomial()
+
+
+
+Base.length(p::Polynomial) = length(p.terms)
+
+
+
+Base.sort(g::Base.Generator; kws...) = sort!([x for x in g]; kws...)
+Base.sort(g::Base.KeySet; kws...) = sort!([x for x in g]; kws...)
+
+"Return pairs (m, c) of monomials and coefficients of polynomial."
+function Base.sort(p::Polynomial)
+    return sort!([(m, c) for (m, c) in p], by=first)
+end
+
+
+
+"Return the monomials in polynomial x."
+monomials(p::Polynomial) = keys(p.terms)
+
+
+
+
+function substitute!(p::Polynomial, x::Polynomial, m::Monomial)
+    if ((pm = p[m]) == 0) || ((xm = x[m]) == 0)
+        return p
+    end
+
+    pdivx = rdiv(pm, xm)
+
+    for (mx, c) in x
+        p[mx] -= rmul(c, pdivx)
+    end
+
+    p[m] = 0
+
+    return p
+end
+
+substitute(p::Polynomial, x, m) = substitute!(copy(p), x, m)
