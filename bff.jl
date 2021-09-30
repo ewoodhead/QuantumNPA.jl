@@ -67,6 +67,9 @@ alphabet = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J',
             'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T',
             'U', 'V', 'W', 'X', 'Y', 'Z']
 
+
+
+"Converty party number to string, e.g., `party2string(3) = 'C'`."
 function party2string(p::Integer)
     base = length(alphabet)
     chars = Array{Char,1}()
@@ -78,6 +81,20 @@ function party2string(p::Integer)
     end
 
     return String(reverse!(chars))
+end
+
+pos(c::Char) = first(indexin(c, alphabet))
+
+"Convert string to party number, e.g., `string2party(\"C\") = 3`."
+function string2party(s::String)
+    base = length(alphabet)
+    party = 0
+
+    for c in s
+        party = pos(c) + base * party
+    end
+
+    return party
 end
 
 
@@ -160,6 +177,8 @@ end
 
 Id = Monomial([])
 
+isidentity(m::Monomial) = isempty(m)
+
 Base.iterate(m::Monomial) = iterate(m.word)
 Base.iterate(m::Monomial, state) = iterate(m.word, state)
 
@@ -168,7 +187,7 @@ Base.length(m::Monomial) = length(m.word)
 Base.hash(m::Monomial, h::UInt) = hash(m.word, h)
 
 function Base.show(io::IO, m::Monomial)
-    if isempty(m)
+    if isidentity(m)
         print(io, " Id")
     else
         for (party, ops) in m
@@ -224,11 +243,6 @@ end
 
 Base.zero(m::Monomial) = Polynomial()
 
-
-
-function operators(m::Monomial)
-    return [Monomial(p, o) for (p, ops) in m for o in ops]
-end
 
 
 Base.:*(x::Number, y::Monomial) = Polynomial(x, y)
@@ -318,7 +332,7 @@ function zbff(party, index, conj=false)
 end
 
 function zbff(party, index::IndexRange, conj=false)
-    return [projector(party, a, input) for a in index]
+    return [zbff(party, i, conj) for i in index]
 end
 
 
@@ -561,22 +575,57 @@ Base.length(p::Polynomial) = length(p.terms)
 
 
 
-Base.sort(g::Base.Generator; kws...) = sort!([x for x in g]; kws...)
-Base.sort(g::Base.KeySet; kws...) = sort!([x for x in g]; kws...)
+Sortable = Union{Base.Generator,
+                 Base.Set,
+                 Base.KeySet,
+                 Base.Iterators.Flatten}
 
-"Return pairs (m, c) of monomials and coefficients of polynomial."
+Base.sort(g::Sortable; kws...) = sort!([x for x in g]; kws...)
+
+"Return pairs (m, c) of monomials and coefficients of polynomial in order."
 function Base.sort(p::Polynomial)
     return sort!([(m, c) for (m, c) in p], by=first)
 end
 
 
 
+"Return all monomials in arguments including duplicates."
+all_monomials(s...) = all_monomials(s)
+all_monomials(itr) = flatten(map(all_monomials, itr))
+all_monomials(p::Polynomial) = keys(p.terms)
+all_monomials(m::Monomial) = (m,)
+
+
+
+"Return all the monomials in the arguments."
+monomials(s...) = monomials(s)
+
+"Return all the monomials in iterable itr."
+monomials(itr) = Set(flatten(map(monomials, itr)))
+
 "Return the monomials in polynomial x."
 monomials(p::Polynomial) = keys(p.terms)
 
+monomials(m::Monomial) = (m,)
 
 
 
+"Return all the individual (order 1) operators in the arguments."
+operators(s...) = operators(s)
+
+operators(itr) = Set(flatten(map(operators, itr)))
+
+function operators(p::Polynomial)
+    return Set(flatten(operators(m) for m in monomials(p)))
+end
+
+"Return all the individual operators making up a monomial."
+function operators(m::Monomial)
+    return (Monomial(p, o) for (p, ops) in m for o in ops)
+end
+
+
+"Eliminate monomial m from p assuming x = 0."
 function substitute!(p::Polynomial, x::Polynomial, m::Monomial)
     if ((pm = p[m]) == 0) || ((xm = x[m]) == 0)
         return p
@@ -591,6 +640,11 @@ function substitute!(p::Polynomial, x::Polynomial, m::Monomial)
     p[m] = 0
 
     return p
+end
+
+"Remove lexicographically highest monomial in x from p assuming x = 0"
+function substitute!(p::Polynomial, x::Polynomial)
+    
 end
 
 substitute(p::Polynomial, x, m) = substitute!(copy(p), x, m)
