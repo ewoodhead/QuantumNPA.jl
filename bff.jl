@@ -50,7 +50,7 @@ end
 
 # Default equality test. This should be specialised for specific types of
 # operators (e.g., projectors), so if this default one is called it means the
-# arguments are not the same type of operator so they are not equal.
+# arguments are not the same type and are therefore not equal.
 Base.:(==)(x::Operator, y::Operator) = false
 
 
