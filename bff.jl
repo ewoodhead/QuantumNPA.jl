@@ -1,4 +1,22 @@
 #using Printf
+#using Base.Iterators
+
+
+
+RNum = Union{Integer,Rational}
+
+"Convert x to integer if it is rational with denominator 1."
+demote(x::Number) = x
+demote(x::RNum) = ((denominator(x) == 1) ? numerator(x) : x)
+
+rmul(x::Number, y::Number) = x * y
+rmul(x::Integer, y::Rational) = demote(x*y)
+rmul(x::Rational, y::Integer) = demote(x*y)
+
+rdiv(x::Number, y::Number) = x / y
+rdiv(x::RNum, y::RNum) = demote(x//y)
+
+
 
 abstract type Operator end
 
@@ -40,6 +58,8 @@ function Base.isless(x::Operator, y::Operator)
     return isless(nameof(typeof(x)), nameof(typeof(y)))
 end
 
+Base.adjoint(o::Operator) = conj(o)
+
 Base.show(io::IO, o::Operator) = print_op(io, o)
 
 
@@ -48,7 +68,10 @@ alphabet = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J',
             'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T',
             'U', 'V', 'W', 'X', 'Y', 'Z']
 
-function party2string(p::Int)
+
+
+"Converty party number to string, e.g., `party2string(3) = 'C'`."
+function party2string(p::Integer)
     base = length(alphabet)
     chars = Array{Char,1}()
 
@@ -61,20 +84,36 @@ function party2string(p::Int)
     return String(reverse!(chars))
 end
 
+pos(c::Char) = first(indexin(c, alphabet))
+
+"Convert string to party number, e.g., `string2party(\"C\") = 3`."
+function string2party(s::String)
+    base = length(alphabet)
+    party = 0
+
+    for c in s
+        party = pos(c) + base * party
+    end
+
+    return party
+end
+
 
 
 struct Projector <: Operator
-    output::Int
-    input::Int
+    output::Integer
+    input::Integer
 end
 
 function print_op(io::IO, p::Projector)
     @printf io "P%d|%d" p.output p.input
 end
 
-function print_op(io::IO, p::Projector, party::Int)
+function print_op(io::IO, p::Projector, party::Integer)
     @printf io "P%s%d|%d" party2string(party) p.output p.input
 end
+
+Base.hash(p::Projector, h::UInt) = hash((p.output, p.input), h)
 
 function Base.:(==)(p::Projector, q::Projector)
     return (p.input == q.input) && (p.output == q.output)
@@ -102,7 +141,7 @@ Base.conj(p::Projector) = p
 
 
 struct Zbff <: Operator
-    index::Int
+    index::Integer
     conj::Bool
 end
 
@@ -110,9 +149,11 @@ function print_op(io::IO, p::Zbff)
     @printf io "Z%s%d" (p.conj ? "*" : "") p.index
 end
 
-function print_op(io::IO, p::Zbff, party::Int)
+function print_op(io::IO, p::Zbff, party::Integer)
     @printf io "Z%s%s%d" party2string(party) (p.conj ? "*" : "") p.index
 end
+
+Base.hash(p::Operator, h::UInt) = hash((p.index, p.conj), h)
 
 function Base.:(==)(p::Zbff, q::Zbff)
     return (p.index == q.index) && (p.conj == q.conj)
@@ -128,22 +169,26 @@ Base.conj(p::Zbff) = Zbff(p.index, !p.conj)
 
 
 struct Monomial
-    word::Array{Tuple{Int,Array{Operator,1}},1}
+    word::Array{Tuple{Integer,Array{Operator,1}},1}
 end
 
-function Monomial(party::Int, operator::Operator)
+function Monomial(party::Integer, operator::Operator)
     return Monomial([(party, [operator])])
 end
 
 Id = Monomial([])
+
+isidentity(m::Monomial) = isempty(m)
 
 Base.iterate(m::Monomial) = iterate(m.word)
 Base.iterate(m::Monomial, state) = iterate(m.word, state)
 
 Base.length(m::Monomial) = length(m.word)
 
+Base.hash(m::Monomial, h::UInt) = hash(m.word, h)
+
 function Base.show(io::IO, m::Monomial)
-    if isempty(m)
+    if isidentity(m)
         print(io, " Id")
     else
         for (party, ops) in m
@@ -155,18 +200,51 @@ function Base.show(io::IO, m::Monomial)
     end
 end
 
+function order(m::Monomial)
+    result = 0
+
+    for (_, ops) in m.word
+        result += length(ops)
+    end
+
+    return result
+end
+
+
+
 Base.:(==)(x::Number, y::Monomial) = (x == 1) && isempty(y)
 
 Base.:(==)(x::Monomial, y::Number) = (y == 1) && isempty(x)
 
 Base.:(==)(x::Monomial, y::Monomial) = (x.word == y.word)
 
-Base.isless(x::Monomial, y::Monomial) = isless(x.word, y.word)
+function Base.isless(x::Monomial, y::Monomial)
+    ox, oy = order(x), order(y)
+
+    if ox < oy
+        return true
+    elseif ox == oy
+        return isless(x.word, y.word)
+    else
+        return false
+    end
+end
+
+
 
 function Base.conj(m::Monomial)
     return Monomial([(party, reverse!([conj(op) for op in ops]))
                      for (party, ops) in m])
 end
+
+function Base.adjoint(m::Monomial)
+    return Monomial([(party, reverse!([adjoint(op) for op in ops]))
+                     for (party, ops) in m])
+end
+
+Base.zero(m::Monomial) = Polynomial()
+
+
 
 Base.:*(x::Number, y::Monomial) = Polynomial(x, y)
 Base.:*(x::Monomial, y::Number) = Polynomial(y, x)
@@ -185,7 +263,7 @@ function Base.:*(x::Monomial, y::Monomial)
     j = 1
     k = 1
 
-    word = Array{Tuple{Int,Array{Operator,1}},1}()
+    word = Array{Tuple{Integer,Array{Operator,1}},1}()
 
     while (j <= M) && (k <= N)
         (px, opsx) = x.word[j]
@@ -227,8 +305,11 @@ end
 
 
 IndexRange = Union{UnitRange{Int},
+                   UnitRange{Integer},
                    StepRange{Int,Int},
-                   Array{Int}}
+                   StepRange{Integer,Integer},
+                   Array{Int},
+                   Array{Integer}}
 
 
 
@@ -236,8 +317,12 @@ function projector(party, output, input)
     return Monomial(party, Projector(output, input))
 end
 
-function projector(party, output::IndexRange, input::Int)
+function projector(party, output::IndexRange, input::Integer)
     return [projector(party, o, input) for o in output]
+end
+
+function projector(party, output::Integer, input::IndexRange)
+    return [projector(party, output, i) for i in input]
 end
 
 function projector(party, output::IndexRange, input::IndexRange)
@@ -251,7 +336,7 @@ function zbff(party, index, conj=false)
 end
 
 function zbff(party, index::IndexRange, conj=false)
-    return [projector(party, a, input) for a in index]
+    return [zbff(party, i, conj) for i in index]
 end
 
 
@@ -277,15 +362,13 @@ Polynomial(x::Base.Generator) = Polynomial(Dict(x))
 Base.iterate(x::Polynomial) = iterate(x.terms)
 Base.iterate(x::Polynomial, state) = iterate(x.terms, state)
 
-function Base.getindex(x::Polynomial, y::Monomial)
-    return (y in keys(x.terms)) ? x.terms[y] : 0
-end
+Base.getindex(x::Polynomial, y::Monomial) = get(x.terms, y, 0)
 
 function Base.setindex!(x::Polynomial, y::Number, z::Monomial)
     if y == 0
         delete!(x.terms, z)
     else
-        x.terms[z] = y
+        x.terms[z] = demote(y)
     end
 end
 
@@ -294,123 +377,130 @@ function Base.copy(x::Polynomial)
 end
 
 function Base.show(io::IO, p::Polynomial)
-    terms = p.terms
-
-    if isempty(terms)
+    if isempty(p)
         print(io, " 0")
     else
-        for (m, c) in terms
+        for (m, c) in sort(p)
             print(io, " + (", c, ")")
             show(io, m)
         end
     end
 end
 
-function Base.:+(x::Number, y::Monomial)
-    z = Polynomial(y)
-    z += x
+
+"Add y to polynomial x, modifying x."
+function add!(x::Polynomial, y::Number)
+    x[Id] += y
+    return x
+end
+
+function add!(x::Polynomial, y::Monomial)
+    x[y] += 1
+    return x
+end
+
+function add!(x::Polynomial, y::Polynomial)
+    for (m, c) in y
+        x[m] += c
+    end
+
+    return x
+end
+
+
+"Add y*z to the polynomial x, modifying x. y has to be a number."
+function addmul!(x::Polynomial, y::Number, z::Number)
+    x[Id] += y*z
+    return x
+end
+
+function addmul!(x::Polynomial, y::Number, z::Monomial)
+    x[z] += y
+    return x
+end
+
+function addmul!(x::Polynomial, y::Number, z::Polynomial)
+    for (m, c) in z
+        x[m] += c*y
+    end
+
+    return x
+end
+
+
+"Subtract y from polynomial x."
+function sub!(x::Polynomial, y::Number)
+    x[Id] -= y
+    return x
+end
+
+function sub!(x::Polynomial, y::Monomial)
+    x[y] -= 1
+    return x
+end
+
+function sub!(x::Polynomial, y::Polynomial)
+    for (m, c) in y
+        x[m] -= c
+    end
+
+    return x
+end
+
+
+"Return a polynomial consisting of the sum of items in s."
+function psum(s)
+    z = Polynomial()
+
+    for x in s
+        add!(z, x)
+    end
+
     return z
 end
 
-Base.:+(x::Monomial, y::Number) = y + x
+psum(m::Monomial) = Polynomial(m)
+
+
+
+Base.:+(x::Number, y::Monomial) = add!(Polynomial(y), x)
+Base.:+(x::Monomial, y::Number) = add!(Polynomial(x), y)
 
 function Base.:+(x::Monomial, y::Monomial)
     return Polynomial((x != y) ? Dict(x => 1, y => 1) : Dict(x => 2))
 end
 
-function Base.:+(x::Number, y::Polynomial)
-    z = copy(y)
-    z[Id] += x
-    return z
-end
+Base.:+(x::Number, y::Polynomial) = add!(copy(y), x)
+Base.:+(x::Polynomial, y::Number) = add!(copy(x), y)
 
-Base.:+(x::Polynomial, y::Number) = y + x
+Base.:+(x::Monomial, y::Polynomial) = add!(copy(y), x)
+Base.:+(x::Polynomial, y::Monomial) = add!(copy(x), y)
 
-function Base.:+(x::Monomial, y::Polynomial)
-    z = copy(y)
-    z[x] += 1
-    return z
-end
-
-Base.:+(x::Polynomial, y::Monomial) = y + x
-
-function Base.:+(x::Polynomial, y::Polynomial)
-    z = copy(x)
-
-    for (m, c) in y
-        z[m] += c
-    end
-
-    return z
-end
+Base.:+(x::Polynomial, y::Polynomial) = add!(copy(x), y)
 
 
 
-function Base.:-(x::Number, y::Monomial)
-    z = Polynomial(Dict(y => -1))
-    z += 1
-    return z
-end
+Base.:-(x::Monomial) = Polynomial(Dict(y => -1))
+Base.:-(x::Polynomial) = Polynomial((m, -c) for (m, c) in y)
 
-function Base.:-(x::Monomial, y::Number)
-    z = Polynomial(x)
-    z[Id] -= y
-    return z
-end
+
+
+Base.:-(x::Number, y::Monomial) = add!(-y, x)
+Base.:-(x::Monomial, y::Number) = sub!(Polynomial(x), y)
 
 function Base.:-(x::Monomial, y::Monomial)
     return Polynomial((x != y) ? Dict(x => 1, y => -1) : Dict())
 end
 
-function Base.:-(x::Number, y::Polynomial)
-    z = Polynomial((m, -c) for (m, c) in y)
-    z[Id] += 1
-    return z
-end
+Base.:-(x::Number, y::Polynomial) = add!(-y, x)
+Base.:-(x::Polynomial, y::Number) = sub!(copy(x), y)
 
-function Base.:-(x::Polynomial, y::Number)
-    z = copy(x)
-    z[Id] -= y
-    return z
-end
+Base.:-(x::Monomial, y::Polynomial) = sub!(Polynomial(x), y)
+Base.:-(x::Polynomial, y::Monomial) = sub!(copy(x), y)
 
-function Base.:-(x::Monomial, y::Polynomial)
-    z = Polynomial((m, -c) for (m, c) in y)
-    z[x] += 1
-    return z
-end
+Base.:-(x::Polynomial, y::Polynomial) = sub!(copy(x), y)
 
-function Base.:-(x::Polynomial, y::Monomial)
-    z = copy(x)
-    z[y] -= 1
-    return z
-end
 
-function Base.:-(x::Polynomial, y::Polynomial)
-    z = copy(x)
-
-    for (m, c) in y
-        z[m] -= c
-    end
-
-    return z
-end
-
-function scale!(x::Polynomial, y::Number)
-    if y == 1
-        return y
-    end
-
-    if y != 0
-        for (m, c) in x
-            x[m] = y*c
-        end
-    else
-        empty!(y.terms)
-    end
-
-    return y
-end
 
 function Base.:*(x::Number, y::Polynomial)
     return (x != 0) ? Polynomial((m, x*c) for (m, c) in y) : 0
@@ -421,15 +511,35 @@ function Base.:*(x::Polynomial, y::Number)
 end
 
 function Base.:*(x::Monomial, y::Polynomial)
-    return sum(c*(x*m) for (m, c) in y)
+    z = Polynomial()
+
+    for (m, c) in y
+        addmul!(z, c, x*m)
+    end
+
+    return z
 end
 
 function Base.:*(x::Polynomial, y::Monomial)
-    return sum(c*(m*y) for (m, c) in x)
+    z = Polynomial()
+
+    for (m, c) in x
+        addmul!(x, c, m*y)
+    end
+
+    return z
 end
 
 function Base.:*(x::Polynomial, y::Polynomial)
-    return sum((cx*cy)*(mx*my) for (mx, cx) in x for (my, cy) in y)
+    z = Polynomial()
+
+    for (mx, cx) in x
+        for (my, cy) in y
+            addmul!(z, cx*cy, mx*my)
+        end
+    end
+
+    return z
 end
 
 
@@ -454,9 +564,91 @@ Base.:(==)(x::Polynomial, y::Polynomial) = isempty(x - y)
 
 
 function Base.conj(x::Polynomial)
-    return Polynomial((conj(m), conj(c)) for (m, c) in p)
+    return Polynomial((conj(m), conj(c)) for (m, c) in x)
 end
 
 function Base.adjoint(x::Polynomial)
-    return Polynomial((adjoint(m), adjoint(c)) for (m, c) in p)
+    return Polynomial((adjoint(m), adjoint(c)) for (m, c) in x)
 end
+
+Base.zero(::Polynomial) = Polynomial()
+
+
+
+Base.length(p::Polynomial) = length(p.terms)
+
+
+
+Sortable = Union{Base.Generator,
+                 Base.Set,
+                 Base.KeySet,
+                 Base.Iterators.Flatten}
+
+Base.sort(g::Sortable; kws...) = sort!([x for x in g]; kws...)
+
+"Return pairs (m, c) of monomials and coefficients of polynomial in order."
+function Base.sort(p::Polynomial)
+    return sort!([(m, c) for (m, c) in p], by=first)
+end
+
+
+
+"Return all monomials in arguments including duplicates."
+all_monomials(s...) = all_monomials(s)
+all_monomials(itr) = flatten(map(all_monomials, itr))
+all_monomials(p::Polynomial) = keys(p.terms)
+all_monomials(m::Monomial) = (m,)
+
+
+
+"Return all the monomials in the arguments."
+monomials(s...) = monomials(s)
+
+"Return all the monomials in iterable itr."
+monomials(itr) = Set(flatten(map(monomials, itr)))
+
+"Return the monomials in polynomial x."
+monomials(p::Polynomial) = keys(p.terms)
+
+monomials(m::Monomial) = (m,)
+
+
+
+"Return all the individual (order 1) operators in the arguments."
+operators(s...) = operators(s)
+
+operators(itr) = Set(flatten(map(operators, itr)))
+
+function operators(p::Polynomial)
+    return Set(flatten(operators(m) for m in monomials(p)))
+end
+
+"Return all the individual operators making up a monomial."
+function operators(m::Monomial)
+    return (Monomial(p, o) for (p, ops) in m for o in ops)
+end
+
+
+"Eliminate monomial m from p assuming x = 0."
+function substitute!(p::Polynomial, x::Polynomial, m::Monomial)
+    if ((pm = p[m]) == 0) || ((xm = x[m]) == 0)
+        return p
+    end
+
+    pdivx = rdiv(pm, xm)
+
+    for (mx, c) in x
+        p[mx] -= rmul(c, pdivx)
+    end
+
+    p[m] = 0
+
+    return p
+end
+
+"Remove lexicographically highest monomial in x from p assuming x = 0"
+function substitute!(p::Polynomial, x::Polynomial)
+    
+end
+
+substitute(p::Polynomial, x, m) = substitute!(copy(p), x, m)

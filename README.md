@@ -9,10 +9,14 @@ copy/adapt some of the code in it and move to `bff.jl`).
 Use `bff.jl` like this:
 ```
 using Printf
+using Base.Iterators
 include("bff.jl")
 ```
 
-At the moment it can do multiplications with projectors and those Z operators
+
+## Basic features
+
+At the moment it can do arithmetic with projectors and those Z operators
 in the Brown-Fawzi-Fawzi paper, e.g.,
 ```
 julia> projector(1,1,1)
@@ -67,12 +71,125 @@ projector(party, output, input)
 zbff(party, index)
 zbff(party, index, conj)
 ```
-Party numbers start from 1.
+Party numbers start from 1. The parameters `output` and `input` (for
+projectors) and `index` for the Z operators can also be ranges or lists of
+integers.
+
+It is also possible to do general arithmetic with operators, for example:
+```
+julia> PA, PB = projector(1,1,1:2), projector(2,1,1:2)
+(Monomial[ PA1|1,  PA1|2], Monomial[ PB1|1,  PB1|2])
+
+julia> A = [Id - 2*PA[x] for x in 1:2]
+2-element Array{Polynomial,1}:
+  + (-2) PA1|1 + (1) Id
+  + (1) Id + (-2) PA1|2
+
+julia> B = [Id - 2*PB[y] for y in 1:2]
+2-element Array{Polynomial,1}:
+  + (1) Id + (-2) PB1|1
+  + (-2) PB1|2 + (1) Id
+
+julia> S = A[1]*(B[1] + B[2]) + A[2]*(B[1] - B[2])
+ + (-4) PA1|1 + (-4) PA1|2 PB1|2 + (4) PA1|1 PB1|1 + (2) Id + (-4) PB1|1 + (4) PA1|2 PB1|1 + (4) PA1|1 PB1|2
+```
+Note that monomials and polynomials are different types, and it is possible
+to loop over the monomials and (nonzero) coefficients in a polynomial:
+```
+julia> PA[1], typeof(PA[1])
+( PA1|1, Monomial)
+
+julia> A[1], typeof(A[1])
+( + (-2) PA1|1 + (1) Id, Polynomial)
+
+julia> for (m, c) in S
+           @printf "%12s => %d\n" m c
+       end
+       PA1|1 => -4
+ PA1|2 PB1|2 => -4
+ PA1|1 PB1|1 => 4
+          Id => 2
+       PB1|1 => -4
+ PA1|2 PB1|1 => 4
+ PA1|1 PB1|2 => 4
+```
+
+
+## NPA example
+
+This short example finds what operators appear and where in the NPA moment
+matrix at level 2 for the CHSH problem. It covers only the upper triangular
+part and treats monomials and their conjugates as the same.
+```
+PA, PB = projector(1,1,1:2), projector(2,1,1:2)
+ops1 = [PA[1], PA[2], PB[1], PB[2]]
+ops2 = sort([pA*pB for pA in PA for pB in PB])
+ops = vcat([Id], ops1, ops2)
+
+indices = Dict()
+
+for (i, x) in enumerate(ops)
+    for j in i:length(ops)
+        y = ops[j]
+        m = conj(x)*y
+        m = min(m, conj(m))
+
+        if m == 0
+            continue
+        elseif haskey(indices, m)
+            push!(indices[m], (i, j))
+        else
+            indices[m] = [(i, j)]
+        end
+    end
+end
+```
+This gives:
+```
+julia> indices
+Dict{Any,Any} with 17 entries:
+   PA1|1 PB1|1 PB1|2       => [(4, 7), (5, 6), (6, 7)]
+   PA1|2 PB1|1 PB1|2       => [(4, 9), (5, 8), (8, 9)]
+   PA1|1                   => [(1, 2), (2, 2)]
+   PB1|1 PB1|2             => [(4, 5)]
+   Id                      => [(1, 1)]
+   PA1|1 PB1|1             => [(1, 6), (2, 4), (2, 6), (4, 6), (6, 6)]
+   PA1|1 PA1|2 PB1|2 PB1|1 => [(7, 8)]
+   PA1|1 PA1|2             => [(2, 3)]
+   PA1|1 PA1|2 PB1|1       => [(2, 8), (3, 6), (6, 8)]
+   PA1|1 PA1|2 PB1|1 PB1|2 => [(6, 9)]
+   PA1|2 PB1|2             => [(1, 9), (3, 5), (3, 9), (5, 9), (9, 9)]
+   PA1|1 PA1|2 PB1|2       => [(2, 9), (3, 7), (7, 9)]
+   PB1|1                   => [(1, 4), (4, 4)]
+   PB1|2                   => [(1, 5), (5, 5)]
+   PA1|2                   => [(1, 3), (3, 3)]
+   PA1|2 PB1|1             => [(1, 8), (3, 4), (3, 8), (4, 8), (8, 8)]
+   PA1|1 PB1|2             => [(1, 7), (2, 5), (2, 7), (5, 7), (7, 7)]
+```
+
+The example above uses `min(m, conj(m))` to find which of `m` or its
+conjugate comes first lexicographically. It works because comparisons between
+monomials are defined:
+```
+julia> PA[1] == PA[1]*PA[1]
+true
+
+julia> PA[1] < PA[1]
+false
+
+julia> PA[1] < PA[2]
+true
+```
+`sort` used above works for the same reason. `==` and `!=` (but not the
+inequalities) can also be used to compare polynomials.
+
+
+## Internal details
 
 The way a list of operators are joined to multiply them is determined at the
-moment by a function `join_ops` near the beginning of the file. This is what
-would need to be generalised if we wanted to support multiplication of
-slightly more general types of operators. For example, if we introduced a
+moment by a function `join_ops` near the beginning of the file `bff.jl`. This
+is what would need to be generalised if we wanted to support multiplication
+of slightly more general types of operators. For example, if we introduced a
 unitary type with `U* U = 1`, the function `join_ops` as it is at the moment
 would simplify `U* U* U U` to `U* U` but not all the way to `1`.
 
