@@ -1,5 +1,7 @@
 #using Printf
+#  @printf
 #using Base.Iterators
+#  flatten
 
 
 
@@ -221,13 +223,29 @@ Base.:(==)(x::Monomial, y::Monomial) = (x.word == y.word)
 function Base.isless(x::Monomial, y::Monomial)
     ox, oy = order(x), order(y)
 
-    if ox < oy
-        return true
-    elseif ox == oy
-        return isless(x.word, y.word)
-    else
-        return false
+    if ox != oy
+        return ox < oy
     end
+
+    for ((p1, ops1), (p2, ops2)) in zip(x, y)
+        if p1 != p2
+            return p1 < p2
+        end
+
+        l1, l2 = length(ops1), length(ops2)
+
+        if l1 != l2
+            return l1 > l2
+        end
+
+        for (o1, o2) in zip(ops1, ops2)
+            if o1 != o2
+                return o1 < o2
+            end
+        end
+    end
+
+    return false
 end
 
 
