@@ -1,4 +1,5 @@
 #using Printf
+#using Base.Iterators
 
 
 
@@ -303,8 +304,11 @@ end
 
 
 
-IndexRange = Union{UnitRange{Integer},
+IndexRange = Union{UnitRange{Int},
+                   UnitRange{Integer},
+                   StepRange{Int,Int},
                    StepRange{Integer,Integer},
+                   Array{Int},
                    Array{Integer}}
 
 
@@ -364,7 +368,7 @@ function Base.setindex!(x::Polynomial, y::Number, z::Monomial)
     if y == 0
         delete!(x.terms, z)
     else
-        x.terms[z] = y
+        x.terms[z] = demote(y)
     end
 end
 

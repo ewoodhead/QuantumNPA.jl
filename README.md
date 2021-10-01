@@ -9,6 +9,7 @@ copy/adapt some of the code in it and move to `bff.jl`).
 Use `bff.jl` like this:
 ```
 using Printf
+using Base.Iterators
 include("bff.jl")
 ```
 
