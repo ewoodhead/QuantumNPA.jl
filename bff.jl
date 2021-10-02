@@ -1,7 +1,7 @@
 #using Printf
 #  @printf
 #using Base.Iterators
-#  flatten
+#  flatten, zip
 
 
 
@@ -349,6 +349,16 @@ end
 
 
 
+function diop(party, input::Integer)
+    return Polynomial(Dict(projector(party, 1, input) => 2, Id => -1))
+end
+
+function diop(party, input::IndexRange)
+    return [diop(party, z) for z in input]
+end
+
+
+
 function zbff(party, index, conj=false)
     return Monomial(party, Zbff(index, conj))
 end
@@ -499,7 +509,7 @@ Base.:+(x::Polynomial, y::Polynomial) = add!(copy(x), y)
 
 
 Base.:-(x::Monomial) = Polynomial(Dict(y => -1))
-Base.:-(x::Polynomial) = Polynomial((m, -c) for (m, c) in y)
+Base.:-(x::Polynomial) = Polynomial((m, -c) for (m, c) in x)
 
 
 

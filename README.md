@@ -7,7 +7,7 @@ code that only does NPA with projectors and shouldn't be used (except to
 copy/adapt some of the code in it and move to `bff.jl`).
 
 Use `bff.jl` like this:
-```
+```julia
 using Printf
 using Base.Iterators
 include("bff.jl")
@@ -18,7 +18,10 @@ include("bff.jl")
 
 At the moment it can do arithmetic with projectors and those Z operators
 in the Brown-Fawzi-Fawzi paper, e.g.,
-```
+```julia
+julia> Id
+ Id
+
 julia> projector(1,1,1)
  PA1|1
 
@@ -63,55 +66,94 @@ julia> conj(p)*p
 
 julia> p*conj(p)
  PA1|1 PB3|4 ZE1 ZE2 ZE*2 ZE*1
+
+julia> diop(1,1)
+ + (-1) Id + (2) PA1|1
 ```
 
 Syntax is
-```
+```julia
 projector(party, output, input)
 zbff(party, index)
 zbff(party, index, conj)
+diop(party, input)
 ```
-Party numbers start from 1. The parameters `output` and `input` (for
-projectors) and `index` for the Z operators can also be ranges or lists of
-integers.
+Party numbers start from 1. `diop(p, i)` makes a dichotomic operator; it does
+the same thing as `2*projector(p, 1, i) - Id`. The parameters `output` and
+`input` (for projectors and diops) and `index` for the Z operators can also
+be ranges or lists of integers. The functions return arrays of operators in
+these cases:
+```julia
+julia> projector(1,1:2,1:2)
+2×2 Array{Monomial,2}:
+  PA1|1   PA1|2
+  PA2|1   PA2|2
+
+julia> zbff(1,1:3)
+3-element Array{Monomial,1}:
+  ZA1
+  ZA2
+  ZA3
+
+julia> diop(1,1:3)
+3-element Array{Polynomial,1}:
+  + (-1) Id + (2) PA1|1
+  + (-1) Id + (2) PA1|2
+  + (-1) Id + (2) PA1|3
+```
 
 It is also possible to do general arithmetic with operators, for example:
-```
-julia> PA, PB = projector(1,1,1:2), projector(2,1,1:2)
-(Monomial[ PA1|1,  PA1|2], Monomial[ PB1|1,  PB1|2])
-
-julia> A = [Id - 2*PA[x] for x in 1:2]
-2-element Array{Polynomial,1}:
-  + (-2) PA1|1 + (1) Id
-  + (1) Id + (-2) PA1|2
-
-julia> B = [Id - 2*PB[y] for y in 1:2]
-2-element Array{Polynomial,1}:
-  + (1) Id + (-2) PB1|1
-  + (-2) PB1|2 + (1) Id
+```julia
+julia> A = diop(1,1:2); B = diop(2,1:2);
 
 julia> S = A[1]*(B[1] + B[2]) + A[2]*(B[1] - B[2])
- + (-4) PA1|1 + (-4) PA1|2 PB1|2 + (4) PA1|1 PB1|1 + (2) Id + (-4) PB1|1 + (4) PA1|2 PB1|1 + (4) PA1|1 PB1|2
+ + (2) Id + (-4) PA1|1 + (-4) PB1|1 + (4) PA1|1 PB1|1 + (4) PA1|1 PB1|2 + (4) PA1|2 PB1|1 + (-4) PA1|2 PB1|2
 ```
 Note that monomials and polynomials are different types, and it is possible
 to loop over the monomials and (nonzero) coefficients in a polynomial:
-```
-julia> PA[1], typeof(PA[1])
-( PA1|1, Monomial)
+```julia
+julia> projector(1,1,1)
+ PA1|1
 
-julia> A[1], typeof(A[1])
-( + (-2) PA1|1 + (1) Id, Polynomial)
+julia> typeof(projector(1,1,1))
+Monomial
+
+julia> 1*projector(1,1,1)
+ + (1) PA1|1
+
+julia> typeof(1*projector(1,1,1))
+Polynomial
+
+julia> A[1]
+ + (-1) Id + (2) PA1|1
+
+julia> typeof(A[1])
+Polynomial
+
+julia> typeof(S)
+Polynomial
 
 julia> for (m, c) in S
-           @printf "%12s => %d\n" m c
+           @printf "%12s  =>  %2d\n" m c
        end
-       PA1|1 => -4
- PA1|2 PB1|2 => -4
- PA1|1 PB1|1 => 4
-          Id => 2
-       PB1|1 => -4
- PA1|2 PB1|1 => 4
- PA1|1 PB1|2 => 4
+ PA1|1 PB1|2  =>   4
+       PA1|1  =>  -4
+ PA1|2 PB1|1  =>   4
+ PA1|2 PB1|2  =>  -4
+ PA1|1 PB1|1  =>   4
+       PB1|1  =>  -4
+          Id  =>   2
+
+julia> for (m, c) in sort(S)
+           @printf "%12s  =>  %2d\n" m c
+       end
+          Id  =>   2
+       PA1|1  =>  -4
+       PB1|1  =>  -4
+ PA1|1 PB1|1  =>   4
+ PA1|1 PB1|2  =>   4
+ PA1|2 PB1|1  =>   4
+ PA1|2 PB1|2  =>  -4
 ```
 
 
@@ -120,7 +162,7 @@ julia> for (m, c) in S
 This short example finds what operators appear and where in the NPA moment
 matrix at level 2 for the CHSH problem. It covers only the upper triangular
 part and treats monomials and their conjugates as the same.
-```
+```julia
 PA, PB = projector(1,1,1:2), projector(2,1,1:2)
 ops1 = [PA[1], PA[2], PB[1], PB[2]]
 ops2 = sort([pA*pB for pA in PA for pB in PB])
@@ -145,32 +187,33 @@ for (i, x) in enumerate(ops)
 end
 ```
 This gives:
-```
-julia> indices
-Dict{Any,Any} with 17 entries:
-   PA1|1 PB1|1 PB1|2       => [(4, 7), (5, 6), (6, 7)]
-   PA1|2 PB1|1 PB1|2       => [(4, 9), (5, 8), (8, 9)]
-   PA1|1                   => [(1, 2), (2, 2)]
-   PB1|1 PB1|2             => [(4, 5)]
-   Id                      => [(1, 1)]
-   PA1|1 PB1|1             => [(1, 6), (2, 4), (2, 6), (4, 6), (6, 6)]
-   PA1|1 PA1|2 PB1|2 PB1|1 => [(7, 8)]
-   PA1|1 PA1|2             => [(2, 3)]
-   PA1|1 PA1|2 PB1|1       => [(2, 8), (3, 6), (6, 8)]
-   PA1|1 PA1|2 PB1|1 PB1|2 => [(6, 9)]
-   PA1|2 PB1|2             => [(1, 9), (3, 5), (3, 9), (5, 9), (9, 9)]
-   PA1|1 PA1|2 PB1|2       => [(2, 9), (3, 7), (7, 9)]
-   PB1|1                   => [(1, 4), (4, 4)]
-   PB1|2                   => [(1, 5), (5, 5)]
-   PA1|2                   => [(1, 3), (3, 3)]
-   PA1|2 PB1|1             => [(1, 8), (3, 4), (3, 8), (4, 8), (8, 8)]
-   PA1|1 PB1|2             => [(1, 7), (2, 5), (2, 7), (5, 7), (7, 7)]
+```julia
+julia> for (m, l) in sort!(collect(indices), by=first)
+           @printf "%24s  =>  %s\n" m l
+       end
+                      Id  =>  [(1, 1)]
+                   PA1|1  =>  [(1, 2), (2, 2)]
+                   PA1|2  =>  [(1, 3), (3, 3)]
+                   PB1|1  =>  [(1, 4), (4, 4)]
+                   PB1|2  =>  [(1, 5), (5, 5)]
+             PA1|1 PA1|2  =>  [(2, 3)]
+             PA1|1 PB1|1  =>  [(1, 6), (2, 4), (2, 6), (4, 6), (6, 6)]
+             PA1|1 PB1|2  =>  [(1, 7), (2, 5), (2, 7), (5, 7), (7, 7)]
+             PA1|2 PB1|1  =>  [(1, 8), (3, 4), (3, 8), (4, 8), (8, 8)]
+             PA1|2 PB1|2  =>  [(1, 9), (3, 5), (3, 9), (5, 9), (9, 9)]
+             PB1|1 PB1|2  =>  [(4, 5)]
+       PA1|1 PA1|2 PB1|1  =>  [(2, 8), (3, 6), (6, 8)]
+       PA1|1 PA1|2 PB1|2  =>  [(2, 9), (3, 7), (7, 9)]
+       PA1|1 PB1|1 PB1|2  =>  [(4, 7), (5, 6), (6, 7)]
+       PA1|2 PB1|1 PB1|2  =>  [(4, 9), (5, 8), (8, 9)]
+ PA1|1 PA1|2 PB1|1 PB1|2  =>  [(6, 9)]
+ PA1|1 PA1|2 PB1|2 PB1|1  =>  [(7, 8)]
 ```
 
 The example above uses `min(m, conj(m))` to find which of `m` or its
 conjugate comes first lexicographically. It works because comparisons between
 monomials are defined:
-```
+```julia
 julia> PA[1] == PA[1]*PA[1]
 true
 
@@ -195,12 +238,12 @@ would simplify `U* U* U U` to `U* U` but not all the way to `1`.
 
 Associating operators in groups to parties is handled by the `Monomial`
 type. At the moment it just contains a list
-```
+```julia
 word = [(p1, ops1), (p2, ops2), ...]
 ```
 of parties `p1`, `p2`, etc. and lists of operators `ops1`, `ops2`,
 etc. associated to those parties. For example,
-```
+```julia
 julia> p
  PA1|1 PB3|4 ZE1 ZE2
 
