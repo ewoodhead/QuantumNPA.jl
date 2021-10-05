@@ -138,6 +138,7 @@ function Base.:*(p::Projector, q::Projector)
     end
 end
 
+
 Base.conj(p::Projector) = p
 
 
@@ -552,7 +553,7 @@ function Base.:*(x::Polynomial, y::Monomial)
     z = Polynomial()
 
     for (m, c) in x
-        addmul!(x, c, m*y)
+        addmul!(z, c, m*y)
     end
 
     return z
