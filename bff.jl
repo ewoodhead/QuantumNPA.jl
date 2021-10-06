@@ -265,64 +265,6 @@ Base.zero(m::Monomial) = Polynomial()
 
 
 
-Base.:*(x::Number, y::Monomial) = Polynomial(x, y)
-Base.:*(x::Monomial, y::Number) = Polynomial(y, x)
-
-function Base.:*(x::Monomial, y::Monomial)
-    coeff = 1
-
-    if (M = length(x)) == 0
-        return y
-    end
-
-    if (N = length(y)) == 0
-        return x
-    end
-
-    j = 1
-    k = 1
-
-    word = Array{Tuple{Integer,Array{Operator,1}},1}()
-
-    while (j <= M) && (k <= N)
-        (px, opsx) = x.word[j]
-        (py, opsy) = y.word[k]
-
-        if px < py
-            push!(word, x.word[j])
-            j += 1
-        elseif py < px
-            push!(word, y.word[k])
-            k += 1
-        else
-            (c, ops) = join_ops(opsx, opsy)
-
-            if c == 0
-                return 0
-            end
-
-            coeff *= c
-
-            if !isempty(ops)
-                push!(word, (px, ops))
-            end
-
-            j += 1
-            k += 1
-        end
-    end
-
-    append!(word, x.word[j:end])
-    append!(word, y.word[k:end])
-
-    m = Monomial(word)
-
-    return (coeff == 1) ? m : Polynomial(m, word)
-end
-
-
-
-
 IndexRange = Union{UnitRange{Int},
                    UnitRange{Integer},
                    StepRange{Int,Int},
@@ -330,9 +272,7 @@ IndexRange = Union{UnitRange{Int},
                    Array{Int},
                    Array{Integer}}
 
-
-
-function projector(party, output, input)
+function projector(party, output::Integer, input::Integer)
     return Monomial(party, Projector(output, input))
 end
 
@@ -360,7 +300,7 @@ end
 
 
 
-function zbff(party, index, conj=false)
+function zbff(party, index::Integer, conj=false)
     return Monomial(party, Zbff(index, conj))
 end
 
@@ -376,12 +316,12 @@ end
 
 Polynomial() = Polynomial(Dict{Monomial,Number}())
 
-Polynomial(x::Number) = Polynomial((x != 0) ? Dict(Id => x) : Dict())
+Polynomial(x::Number) = Polynomial((x != 0) ? Dict(Id => demote(x)) : Dict())
 
 Polynomial(x::Monomial) = Polynomial(Dict(x => 1))
 
 function Polynomial(x::Number, y::Monomial)
-    return (x != 0) ? Polynomial(Dict(y => x)) : 0
+    return (x != 0) ? Polynomial(Dict(y => demote(x))) : 0
 end
 
 Polynomial(x::Polynomial) = x
@@ -415,6 +355,7 @@ function Base.show(io::IO, p::Polynomial)
         end
     end
 end
+
 
 
 "Add y to polynomial x, modifying x."
@@ -530,6 +471,61 @@ Base.:-(x::Polynomial, y::Monomial) = sub!(copy(x), y)
 Base.:-(x::Polynomial, y::Polynomial) = sub!(copy(x), y)
 
 
+
+Base.:*(x::Number, y::Monomial) = Polynomial(x, y)
+Base.:*(x::Monomial, y::Number) = Polynomial(y, x)
+
+function Base.:*(x::Monomial, y::Monomial)
+    coeff = 1
+
+    if (M = length(x)) == 0
+        return y
+    end
+
+    if (N = length(y)) == 0
+        return x
+    end
+
+    j = 1
+    k = 1
+
+    word = Array{Tuple{Integer,Array{Operator,1}},1}()
+
+    while (j <= M) && (k <= N)
+        (px, opsx) = x.word[j]
+        (py, opsy) = y.word[k]
+
+        if px < py
+            push!(word, x.word[j])
+            j += 1
+        elseif py < px
+            push!(word, y.word[k])
+            k += 1
+        else
+            (c, ops) = join_ops(opsx, opsy)
+
+            if c == 0
+                return 0
+            end
+
+            coeff *= c
+
+            if !isempty(ops)
+                push!(word, (px, ops))
+            end
+
+            j += 1
+            k += 1
+        end
+    end
+
+    append!(word, x.word[j:end])
+    append!(word, y.word[k:end])
+
+    m = Monomial(word)
+
+    return (coeff == 1) ? m : Polynomial(m, word)
+end
 
 function Base.:*(x::Number, y::Polynomial)
     return (x != 0) ? Polynomial((m, x*c) for (m, c) in y) : 0
