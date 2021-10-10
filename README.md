@@ -137,8 +137,8 @@ zbff(party, index, conj=false)
 ```
 In all of these:
 - Party numbers start from 1.
-- The parameters called `input`, `output`, and `index` either be integers or
-  arrays or ranges of integers.
+- The parameters called `input`, `output`, and `index` can be either integers
+  or arrays or ranges of integers.
 - The parameter `conj` is optional and defaults to `false` if it is omitted.
 
 Some examples:
