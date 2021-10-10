@@ -773,6 +773,27 @@ end
 
 
 
+function Base.:^(x::Union{Monomial,Polynomial}, p::Integer)
+    @assert p >= 0
+
+    result = ((p % 2 == 1) ? x : Id)
+    p >>= 1
+
+    while p > 0
+        x *= x
+
+        if p % 2 == 1
+            result *= x
+        end
+
+        p >>= 1
+    end
+
+    return result
+end
+
+
+
 Base.:(==)(x::Number, y::Polynomial) = isempty(y - x)
 Base.:(==)(x::Polynomial, y::Number) = isempty(x - y)
 
@@ -849,7 +870,8 @@ function operators(m::Monomial)
 end
 
 
-"Eliminate monomial m from p assuming x = 0."
+
+"Eliminate monomial m from p assuming <x> = 0. Modifies p."
 function substitute!(p::Polynomial, x::Polynomial, m::Monomial)
     if ((pm = p[m]) == 0) || ((xm = x[m]) == 0)
         return p
