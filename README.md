@@ -79,10 +79,7 @@ Id + 2 UA1 UA*2 UA3 PA1|1 + UA1 UA*2 UA3 PA1|1 UA1 UA*2 UA3 PA1|1
 julia> conj(Q)*Q
 Id + PA1|1 + PA1|1 UA*3 UA2 UA*1 + UA1 UA*2 UA3 PA1|1
 
-julia> ZE = zbff(5, 1:2)
-2-element Array{Monomial,1}:
- ZE1
- ZE2
+julia> ZE = zbff(5, 1:2);
 
 julia> R = PA[1,1]*PB[2,2]*ZE[1]*ZE[2]
 PA1|1 PB2|2 ZE1 ZE2
@@ -221,9 +218,10 @@ ops2 = sort(Set(O1*O2 for O1 in ops1 for O2 in ops1))
 
 indices = Dict()
 
-for (i, x) in enumerate(ops2)
-    for j in i:length(ops2)
-        y = ops2[j]
+indexed_ops = collect(enumerate(ops2))
+
+for (i, x) in indexed_ops
+    for (j, y) in indexed_ops[i:end]
         m = conj(x)*y
         m = min(m, conj(m))
 
