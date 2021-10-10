@@ -34,18 +34,30 @@ Base.:*(x::Operator, y::Operator) = (1, [x, y])
 
 # This controls how lists of operators are multiplied.
 # It is not very general at the moment.
+# Assumption: inputs opsx and opsy both contain at least one element.
 function join_ops(opsx::Array{Operator,1}, opsy::Array{Operator,1})
-    opx = opsx[end]
-    opy = opsy[1]
-    (c, opxy) = opx * opy
+    j = length(opsx)
+    k = 1
+    K = 1 + length(opsy)
+    c = 1
 
-    if c == 0
-        return (0, [])
+    while true
+        opx, opy = opsx[j], opsy[k]
+        (c1, op) = opx * opy
+
+        if c1 == 0
+            return (0, [])
+        end
+
+        c *= c1
+        j -= 1
+        k += 1
+
+        if (op != []) || (j == 0) || (k == K)
+            ops = vcat(opsx[1:j], op, opsy[k:end])
+            return (c, ops)
+        end
     end
-
-    ops = vcat(opsx[1:end-1], opxy, opsy[2:end])
-
-    return (c, ops)
 end
 
 # Default equality test. This should be specialised for specific types of
@@ -143,6 +155,42 @@ Base.conj(p::Projector) = p
 
 
 
+struct Unitary <: Operator
+    index::Integer
+    conj::Bool
+end
+
+function print_op(io::IO, u::Unitary)
+    @printf io "U%s%d" (u.conj ? "*" : "") u.index
+end
+
+function print_op(io::IO, u::Unitary, party::Integer)
+    @printf io "U%s%s%d" party2string(party) (u.conj ? "*" : "") u.index
+end
+
+Base.hash(u::Unitary, h::UInt) = hash((u.index, u.conj), h)
+
+function Base.:(==)(u::Unitary, v::Unitary)
+    return (u.index == v.index) && (u.conj == v.conj)
+end
+
+function Base.isless(u::Unitary, v::Unitary)
+    ui, vi = u.index, v.index
+    return (ui < vi) || ((ui == vi) && !u.conj && v.conj)
+end
+
+function Base.:*(u::Unitary, v::Unitary)
+    if (u.index != v.index) || (u.conj == v.conj)
+        return (1, [u, v])
+    else
+        return (1, [])
+    end
+end
+
+Base.conj(u::Unitary) = Unitary(u.index, !u.conj)
+
+
+
 struct Zbff <: Operator
     index::Integer
     conj::Bool
@@ -192,12 +240,15 @@ Base.hash(m::Monomial, h::UInt) = hash(m.word, h)
 
 function Base.show(io::IO, m::Monomial)
     if isidentity(m)
-        print(io, " Id")
+        print(io, "Id")
     else
+        sep = ""
+
         for (party, ops) in m
             for o in ops
-                print(io, " ")
+                print(io, sep)
                 print_op(io, o, party)
+                sep = " "
             end
         end
     end
@@ -290,6 +341,16 @@ end
 
 
 
+function unitary(party, index::Integer, conj=false)
+    return Monomial(party, Unitary(index, conj))
+end
+
+function unitary(party, index::IndexRange, conj=false)
+    return [unitary(party, i, conj) for i in index]
+end
+
+
+
 function diop(party, input::Integer)
     return Polynomial(Dict(projector(party, 1, input) => 2, Id => -1))
 end
@@ -345,13 +406,57 @@ function Base.copy(x::Polynomial)
     return Polynomial(copy(x.terms))
 end
 
+function csgn(x::Real, p::String = "+", m::String = "-")
+    return (x >= 0) ? p : m
+end
+
+function sgnnum(x::Number, p::String = "+", m::String = "-")
+    xr = real(x)
+    xi = imag(x)
+    
+    if xi == 0
+        return (csgn(xr, p, m), string(abs(xr)))
+    elseif xr == 0
+        return (csgn(xi, p, m), "$(abs(xi))im")
+    elseif xr > 0
+        return (p, "($x)")
+    else
+        return (m, "($(-x))")
+    end
+end
+
+function firstcoeff2string(x::Number)
+    if x == 1
+        return ""
+    elseif x == -1
+        return "-"
+    else
+        (s, xs) = sgnnum(x, "", "-")
+        return "$s$xs "
+    end
+end
+
+function coeff2string(x::Number)
+    if x == 1
+        return " + "
+    elseif x == -1
+        return " - "
+    else
+        (s, xs) = sgnnum(x)
+        return " $s $xs "
+    end
+end
+
 function Base.show(io::IO, p::Polynomial)
     if isempty(p)
-        print(io, " 0")
+        print(io, "0")
     else
+        c2s = firstcoeff2string
+
         for (m, c) in sort(p)
-            print(io, " + (", c, ")")
+            print(io, c2s(c))
             show(io, m)
+            c2s = coeff2string
         end
     end
 end
