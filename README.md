@@ -25,6 +25,7 @@ operators that we associate to different parties. At the moment:
 - projector,
 - unitary,
 - zbff (Brown-Fawzi-Fawzi operators).
+
 The identity is represented by a variable `Id` that is predefined.
 ```julia
 julia> Id
@@ -141,7 +142,7 @@ In all of these:
   or arrays or ranges of integers.
 - The parameter `conj` is optional and defaults to `false` if it is omitted.
 
-Some examples:
+Couple of examples:
 ```julia
 julia> projector(1, 1:2, 1:2)
 2×2 Array{Monomial,2}:
@@ -155,8 +156,8 @@ julia> julia> zbff(1, 1:3)
  ZA3
 ```
 
-Note that there are no special relations (at least, at the moment) between
-these different types of operators, so you shouldn't mix, e.g., projectors
+There are no special relations (at least, at the moment) between these
+different types of operators, so you shouldn't, for example, mix projectors
 and dichotomic operators unless you consider them to be unrelated to each
 other:
 ```julia
@@ -171,16 +172,16 @@ Note that monomials and polynomials are different types (although they are
 occasionally printed the same), and it is possible to loop over the monomials
 and (nonzero) coefficients in a polynomial:
 ```julia
-julia> projector(1,1,1)
+julia> P = projector(1, 1, 1)
 PA1|1
 
-julia> typeof(projector(1,1,1))
+julia> typeof(P)
 Monomial
 
-julia> 1*projector(1,1,1)
+julia> Q = 1*P
 PA1|1
 
-julia> typeof(1*projector(1,1,1))
+julia> typeof(Q)
 Polynomial
 
 julia> S
@@ -289,7 +290,22 @@ julia> A2 < A1*A2
 true
 ```
 `sort` used above works for the same reason. `==` and `!=` (but not the
-inequalities) can also be used to compare polynomials.
+inequalities) can also be used to compare monomials with polynomials or
+polynomials with each other:
+```julia
+julia> A1 == 1*A1
+true
+
+julia> A1 < 1*A1
+ERROR: MethodError: no method matching isless(::Monomial, ::Polynomial)
+Closest candidates are:
+  isless(::Missing, ::Any) at missing.jl:87
+  isless(::Monomial, ::Monomial) at /home/erik/projects/bff-npa/bff.jl:347
+  isless(::Any, ::Missing) at missing.jl:88
+Stacktrace:
+ [1] <(::Monomial, ::Polynomial) at ./operators.jl:268
+ [2] top-level scope at REPL[94]:1
+```
 
 
 ## Internal details
