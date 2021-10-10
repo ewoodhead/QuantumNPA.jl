@@ -25,7 +25,7 @@ operators that we associate to different parties. At the moment:
 - projector,
 - unitary,
 - zbff (Brown-Fawzi-Fawzi operators).
-The identity is represented by variable `Id` that is predefined.
+The identity is represented by a variable `Id` that is predefined.
 ```julia
 julia> Id
 Id
@@ -107,11 +107,11 @@ Id
 julia> FA^6
 A9^1
 
-julia> FA*FA
-A9^2
-
 julia> conj(FA^3)*FA^3
 Id
+
+julia> FA*FA
+A9^2
 
 julia> conj((FA*FA)^4)
 A9^2
