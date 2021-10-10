@@ -114,6 +114,78 @@ end
 
 
 
+struct Dichotomic <: Operator
+    input::Integer
+end
+
+function print_op(io::IO, x::Dichotomic)
+    @printf io "_%d" x.input
+end
+
+function print_op(io::IO, x::Dichotomic, party::Integer)
+    @printf io "%s%d" party2string(party) x.input
+end
+
+Base.hash(x::Dichotomic, h::UInt) = hash(x.input, h)
+
+Base.:(==)(x::Dichotomic, y::Dichotomic) = (x.input == y.input)
+
+Base.isless(x::Dichotomic, y::Dichotomic) = (x.input < y.input)
+
+function Base.:*(x::Dichotomic, y::Dichotomic)
+    return (x.input == y.input) ? (1, []) : (1, [x, y])
+end
+
+Base.conj(x::Dichotomic) = x
+
+
+
+struct Fourier <: Operator
+    input::Integer
+    power::Integer
+    d::Integer
+end
+
+function print_op(io::IO, x::Fourier)
+    @printf io "d%d^%d" x.input x.power
+end
+
+function print_op(io::IO, x::Fourier, party::Integer)
+    @printf io "%s%d^%d" party2string(party) x.input x.power
+end
+
+Base.hash(x::Fourier, h::UInt) = hash((x.input, x.power, x.d), h)
+
+function Base.:(==)(x::Fourier, y::Fourier)
+    return (x.d == y.d) && (x.input == y.input) && (x.power == y.power)
+end
+
+function Base.isless(x::Fourier, y::Fourier)
+    if x.d != y.d
+        return x.d < y.d
+    else
+        xi = x.input
+        yi = y.input
+        return (xi < yi) || ((xi == yi) && (x.power < y.power))
+    end
+end
+
+function Base.:*(x::Fourier, y::Fourier)
+    input = x.input
+    d = x.d
+
+    if (y.d != d) || (y.input != input)
+        return (1, [x, y])
+    else
+        p = (x.power + y.power) % d
+        return (1, ((p != 0) ? [Fourier(input, p, d)] : []))
+    end
+end
+
+Base.conj(x::Fourier) = Fourier(x.input, x.d - x.power, x.d)
+
+
+
 struct Projector <: Operator
     output::Integer
     input::Integer
@@ -149,7 +221,6 @@ function Base.:*(p::Projector, q::Projector)
         return (1, [p, q])
     end
 end
-
 
 Base.conj(p::Projector) = p
 
@@ -316,12 +387,41 @@ Base.zero(m::Monomial) = Polynomial()
 
 
 
-IndexRange = Union{UnitRange{Int},
-                   UnitRange{Integer},
-                   StepRange{Int,Int},
-                   StepRange{Integer,Integer},
-                   Array{Int},
-                   Array{Integer}}
+IndexRange = Union{UnitRange{<:Integer},
+                   StepRange{<:Integer,<:Integer},
+                   Array{<:Integer}}
+
+
+
+function dichotomic(party, input::Integer)
+    return Monomial(party, Dichotomic(input))
+end
+
+function dichotomic(party, input::IndexRange)
+    return [dichotomic(party, z) for z in input]
+end
+
+
+
+function fourier(party, input::Integer, power::Integer, d::Integer)
+    @assert d > 0
+    p = power % d
+    return (p != 0) ? Monomial(party, Fourier(input, p, d)) : Id
+end
+
+function fourier(party, input::IndexRange, power::Integer, d::Integer)
+    return [fourier(party, z, power, d) for z in input]
+end
+
+function fourier(party, input::Integer, power::IndexRange, d::Integer)
+    return [fourier(party, input, power, d) for p in power]
+end
+
+function fourier(party, input::IndexRange, power::IndexRange, d::Integer)
+    return [fourier(party, z, p, d) for z in input, p in power]
+end
+
+
 
 function projector(party, output::Integer, input::Integer)
     return Monomial(party, Projector(output, input))
@@ -347,16 +447,6 @@ end
 
 function unitary(party, index::IndexRange, conj=false)
     return [unitary(party, i, conj) for i in index]
-end
-
-
-
-function diop(party, input::Integer)
-    return Polynomial(Dict(projector(party, 1, input) => 2, Id => -1))
-end
-
-function diop(party, input::IndexRange)
-    return [diop(party, z) for z in input]
 end
 
 
