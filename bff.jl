@@ -226,6 +226,83 @@ Base.conj(p::Projector) = p
 
 
 
+struct Ketbra <: Operator
+    outputl::Integer
+    outputr::Integer
+    input::Integer
+end
+
+function print_op(io::IO, k::Ketbra)
+    @printf io "|%d><%d|%d" k.outputl k.outputr k.input
+end
+
+function print_op(io::IO, k::Ketbra, party::Integer)
+    @printf io "|%d><%d|%d%s" k.outputl k.outputr k.input party2string(party)
+end
+
+Base.hash(k::Ketbra, h::UInt) = hash((k.outputl, k.outputr, k.input), h)
+
+function Base.:(==)(k::Ketbra, l::Ketbra)
+    return ((k.input == l.input) && (k.outputl == l.outputr)
+            && (k.outputr == l.outputr))
+end
+
+function Base.isless(k::Ketbra, l::Ketbra)
+    ki, li = k.input, l.input
+
+    return (k.input, k.outputl, k.outputr) < (l.input, l.outputl. l.outputr)
+end
+
+function Base.:*(p::Projector, k::Ketbra)
+    if p.input == k.input
+        if p.output == k.outputl
+            return (1, [k])
+        else
+            return (0, Array{Projector,1}())
+        end
+    else
+        return (1, [p, k])
+    end
+end
+
+function Base.:*(k::Ketbra, p::Projector)
+    if k.input == p.input
+        if k.outputr == p.output
+            return (1, [k])
+        else
+            return (0, Array{Projector,1}())
+        end
+    else
+        return (1, [k, p])
+    end
+end
+
+function Base.:*(k::Ketbra, l::Ketbra)
+    input = k.input
+
+    if input == l.input
+        kor, lol = k.outputr, l.outputl
+        
+        if kor == lol
+            kol, lor = k.outputl, l.outputr
+
+            if kol != lor
+                return (1, [Ketbra(kol, lor, input)])
+            else
+                return (1, [Projector(kol, input)])
+            end
+        else
+            return (0, Array{Projector,1}())
+        end
+    else
+        return (1, [k, p])
+    end
+end
+
+Base.conj(k::Ketbra) = Ketbra(k.outputr, k.outputl, k.input)
+
+
+
 struct Unitary <: Operator
     index::Integer
     conj::Bool
@@ -437,6 +514,30 @@ end
 
 function projector(party, output::IndexRange, input::IndexRange)
     return [projector(party, o, i) for o in output, i in input]
+end
+
+
+
+function ketbra(party, outputl::Integer, outputr::Integer, input::Integer)
+    op = ((outputl != outputr) ?
+          Ketbra(outputl, outputr, input) :
+          Projector(outputl, input))
+    return Monomial(party, op)
+end
+
+function ketbra(party, outputl::IndexRange, outputr::IndexRange,
+                input::Integer)
+    return [ketbra(party, ol, or, input) for ol in outputl, or in outputr]
+end
+
+function ketbra(party, outputl::Integer, outputr::Integer, input::IndexRange)
+    return [ketbra(party, outputl, outputr, i) for i in input]
+end
+
+function ketbra(party, outputl::IndexRange, outputr::IndexRange,
+                input::IndexRange)
+    return [ketbra(party, ol, or, i)
+            for ol in outputl, or in outputr, i in input]
 end
 
 
