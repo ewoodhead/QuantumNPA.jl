@@ -127,17 +127,22 @@ julia> S^2
 
 The functions that create monomials and their parameters are
 ```julia
-dichotomic(party, input)
+dichotomic(party, input, output, full=false)
 fourier(party, input, power, d)
 projector(party, output, input)
 unitary(party, index, conj=false)
 zbff(party, index, conj=false)
 ```
-In all of these:
+In these:
 - Party numbers start from 1.
 - The parameters called `input`, `output`, and `index` can be either integers
   or arrays or ranges of integers.
 - The parameter `conj` is optional and defaults to `false` if it is omitted.
+- For projectors, if you give a range of inputs you can also give a value for
+  a fourth parameter `full`, which defaults to `false`. Setting it to `true`
+  indicates that you indend for the range of outputs to represent the full
+  set of measurement outcomes. In that case, in place of the last projector
+  you are given the identity minus the sum of all the preceding projectors.
 
 Couple of examples:
 ```julia
@@ -145,6 +150,12 @@ julia> projector(1, 1:2, 1:2)
 2×2 Array{Monomial,2}:
  PA1|1  PA1|2
  PA2|1  PA2|2
+
+julia> projector(1, 1:3, 1:2, true)
+3×2 Array{Any,2}:
+ PA1|1               PA1|2
+ PA2|1               PA2|2
+ Id - PA1|1 - PA2|1  Id - PA1|2 - PA2|2
 
 julia> julia> zbff(1, 1:3)
 3-element Array{Monomial,1}:

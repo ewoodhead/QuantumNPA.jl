@@ -372,6 +372,7 @@ struct Monomial
 end
 
 function Monomial(party::Integer, operator::Operator)
+    @assert party > 0
     return Monomial([(party, [operator])])
 end
 
@@ -504,16 +505,44 @@ function projector(party, output::Integer, input::Integer)
     return Monomial(party, Projector(output, input))
 end
 
-function projector(party, output::IndexRange, input::Integer)
-    return [projector(party, o, input) for o in output]
+function projector(party, output::IndexRange, input::Integer,
+                   full::Bool=false)
+    if full
+        outputs = output[1:end-1]
+        ps = [projector(party, o, input) for o in outputs]
+        pl = Polynomial(Id)
+
+        for p in ps
+            pl[p] = -1
+        end
+
+        return vcat(ps, [pl])
+    else
+        return [projector(party, o, input) for o in output]
+    end
 end
 
 function projector(party, output::Integer, input::IndexRange)
     return [projector(party, output, i) for i in input]
 end
 
-function projector(party, output::IndexRange, input::IndexRange)
-    return [projector(party, o, i) for o in output, i in input]
+function projector(party, output::IndexRange, input::IndexRange,
+                   full::Bool=false)
+    if full
+        outputs = output[1:end-1]
+        ps = [projector(party, o, i) for o in outputs, i in input]
+        pl = reshape([Polynomial(Id) for _ in input], 1, length(input))
+
+        for i in input
+            for p in ps[:,i]
+                pl[i][p] = -1
+            end
+        end
+
+        return vcat(ps, pl)
+    else
+        return [projector(party, o, i) for o in output, i in input]
+    end
 end
 
 
