@@ -179,9 +179,9 @@ Id + A1 - 2 PA1|1
 
 ## Analysing, modifying, and deconstructing operators
 
-Monomials and polynomials are objects of types, although a polynomial
-consisting of a single monomial multiplied by 1 is printed the same as a
-monomial:
+Monomials and polynomials are objects of different types, although a
+polynomial consisting of a single monomial multiplied by 1 is printed the
+same as a monomial:
 ```julia
 julia> P = projector(1, 1, 1)
 PA1|1
