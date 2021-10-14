@@ -607,7 +607,9 @@ end
 
 Polynomial(x::Polynomial) = x
 
-Polynomial(x::Base.Generator) = Polynomial(Dict(x))
+function Polynomial(x::Base.Generator)
+    return Polynomial(Dict((m, demote(c)) for (m, c) in x))
+end
 
 Base.iterate(x::Polynomial) = iterate(x.terms)
 Base.iterate(x::Polynomial, state) = iterate(x.terms, state)
@@ -703,6 +705,7 @@ function add!(x::Polynomial, y::Polynomial)
 end
 
 
+
 "Add y*z to the polynomial x, modifying x. y has to be a number."
 function addmul!(x::Polynomial, y::Number, z::Number)
     x[Id] += y*z
@@ -723,6 +726,7 @@ function addmul!(x::Polynomial, y::Number, z::Polynomial)
 end
 
 
+
 "Subtract y from polynomial x."
 function sub!(x::Polynomial, y::Number)
     x[Id] -= y
@@ -741,6 +745,17 @@ function sub!(x::Polynomial, y::Polynomial)
 
     return x
 end
+
+
+
+function mul!(x::Polynomial, y::Number)
+    for (m, c) in x
+        x[m] = c*y
+    end
+
+    return x
+end
+
 
 
 "Return a polynomial consisting of the sum of items in s."
@@ -1024,3 +1039,21 @@ function substitute!(p::Polynomial, x::Polynomial)
 end
 
 substitute(p::Polynomial, x, m) = substitute!(copy(p), x, m)
+
+
+
+function cglmp(d::Integer)
+    PA = projector(1, 1:d, 1:2, true)
+    PB = projector(2, 1:d, 1:2, true)
+
+    d1 = d - 1
+
+    function p(x, y, k)
+        return psum(PA[1+a, x] * PB[1+mod(a+k,d), y] for a in 0:d1)
+    end
+
+    return psum(mul!(p(1,1,k) + p(2,1,-k-1) + p(2,2,k) + p(1,2,-k)
+                     - p(1,1,-k-1) - p(2,1,k) - p(2,2,-k-1) - p(1,2,k+1),
+                     (1 - 2*k//d1))
+                for k in 0:(div(d,2)-1))
+end
