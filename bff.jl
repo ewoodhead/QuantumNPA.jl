@@ -628,6 +628,15 @@ function Base.copy(x::Polynomial)
     return Polynomial(copy(x.terms))
 end
 
+
+num2str(x::Real) = "$x"
+
+function num2str(x::Rational)
+    a, b = numerator(x), denominator(x)
+
+    return (b != 1) ? "$a/$b" : "$a"
+end
+
 function csgn(x::Real, p::String = "+", m::String = "-")
     return (x >= 0) ? p : m
 end
@@ -637,13 +646,23 @@ function sgnnum(x::Number, p::String = "+", m::String = "-")
     xi = imag(x)
     
     if xi == 0
-        return (csgn(xr, p, m), string(abs(xr)))
+        return (csgn(xr, p, m), num2str(abs(xr)))
     elseif xr == 0
-        return (csgn(xi, p, m), "$(abs(xi))im")
-    elseif xr > 0
-        return (p, "($x)")
+        return (csgn(xi, p, m), "$(num2str(abs(xi)))im")
     else
-        return (m, "($(-x))")
+        if xr >= 0
+            xrs = num2str(xr)
+            s = csgn(xi)
+            xis = num2str(abs(xi))
+            
+            return (p, "($xrs $s $(xis)im)")
+        else
+            xrs = num2str(-xr)
+            s = csgn(-xi)
+            xis = num2str(abs(xi))
+
+            return (m, "($xrs $s $(xis)im)")
+        end
     end
 end
 
