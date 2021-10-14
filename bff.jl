@@ -78,6 +78,12 @@ Base.show(io::IO, o::Operator) = print_op(io, o)
 
 
 
+abstract type HermitianOperator <: Operator end
+
+Base.conj(h::HermitianOperator) = h
+
+
+
 alphabet = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J',
             'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T',
             'U', 'V', 'W', 'X', 'Y', 'Z']
@@ -114,7 +120,7 @@ end
 
 
 
-struct Dichotomic <: Operator
+struct Dichotomic <: HermitianOperator
     input::Integer
 end
 
@@ -135,8 +141,6 @@ Base.isless(x::Dichotomic, y::Dichotomic) = (x.input < y.input)
 function Base.:*(x::Dichotomic, y::Dichotomic)
     return (x.input == y.input) ? (1, []) : (1, [x, y])
 end
-
-Base.conj(x::Dichotomic) = x
 
 
 
@@ -186,7 +190,7 @@ Base.conj(x::Fourier) = Fourier(x.input, x.d - x.power, x.d)
 
 
 
-struct Projector <: Operator
+struct Projector <: HermitianOperator
     output::Integer
     input::Integer
 end
@@ -221,8 +225,6 @@ function Base.:*(p::Projector, q::Projector)
         return (1, [p, q])
     end
 end
-
-Base.conj(p::Projector) = p
 
 
 
