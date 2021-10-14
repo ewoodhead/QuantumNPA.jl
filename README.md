@@ -322,7 +322,7 @@ constraints = [A1, A2, B1, B2,
                A1*B1 - 0.7,
                A1*B2 - 0.7,
                A2*B1 - 0.7,
-               A2*B2 - 0.7]
+               A2*B2 + 0.7]
 ```
 Assuming these variable definitions, we can use the `operators()` function to
 immediately find all the level-one operators in the problem:
