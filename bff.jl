@@ -928,10 +928,10 @@ end
 
 
 
-Base.:/(x::Monomial, y::Number) = Polynomial(1/y, x)
+Base.:/(x::Monomial, y::Number) = Polynomial(rdiv(1, y), x)
 
 function Base.:/(x::Polynomial, y::Number)
-    divs = ((m, c/y) for (m, c) in x)
+    divs = ((m, rdiv(c, y)) for (m, c) in x)
     return Polynomial((m, c) for (m, c) in divs if c != 0)
 end
 
