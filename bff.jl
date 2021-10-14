@@ -507,7 +507,7 @@ function projector(party, output::Integer, input::Integer)
     return Monomial(party, Projector(output, input))
 end
 
-function projector(party, output::IndexRange, input::Integer,
+function projector(party, output::IndexRange, input::Integer;
                    full::Bool=false)
     if full
         outputs = output[1:end-1]
@@ -528,7 +528,7 @@ function projector(party, output::Integer, input::IndexRange)
     return [projector(party, output, i) for i in input]
 end
 
-function projector(party, output::IndexRange, input::IndexRange,
+function projector(party, output::IndexRange, input::IndexRange;
                    full::Bool=false)
     if full
         outputs = output[1:end-1]
@@ -1021,18 +1021,76 @@ monomials(m::Monomial) = (m,)
 
 
 
+function add_monomials!(table::Dict{Integer,Set{Monomial}},
+                        itr)
+    for x in itr
+        add_monomials!(table, x)
+    end
+
+    return table
+end
+
+function add_monomials!(table::Dict{Integer,Set{Monomial}},
+                        p::Polynomial)
+    for m in monomials(p)
+        add_monomials!(table, m)
+    end
+
+    return table
+end
+
+"Update table of parties -> monomials with operators in a given monomial."
+function add_monomials!(table::Dict{Integer,Set{Monomial}},
+                        m::Monomial)
+    for (p, ops) in m
+        if !haskey(table, p)
+            table[p] = Set{Monomial}()
+        end
+
+        for o in ops
+            push!(table[p], Monomial(p, o))
+        end
+    end
+
+    return table
+end
+
+
+
 "Return all the individual (order 1) operators in the arguments."
-operators(s...) = operators(s)
+operators(s...; by_party::Bool=false) = operators(s; by_party)
 
-operators(itr) = Set(flatten(map(operators, itr)))
+function operators(itr; by_party::Bool=false)
+    if !by_party
+        return Set(flatten(map(operators, itr)))
+    else
+        return add_monomials!(Dict{Integer,Set{Monomial}}(), itr)
+    end
+end
 
-function operators(p::Polynomial)
-    return Set(flatten(operators(m) for m in monomials(p)))
+function operators(p::Polynomial; by_party::Bool=false)
+    if !by_party
+        return Set(flatten(operators(m) for m in monomials(p)))
+    else
+        return add_monomials!(Dict{Integer,Set{Monomial}}(), p)
+    end
 end
 
 "Return all the individual operators making up a monomial."
-function operators(m::Monomial)
-    return (Monomial(p, o) for (p, ops) in m for o in ops)
+function operators(m::Monomial; by_party::Bool=false)
+    if !by_party
+        return Set(Monomial(p, o) for (p, ops) in m for o in ops)
+    else
+        return add_monomials!(Dict{Integer,Set{Monomial}}(), m)
+    end
+end
+
+function operators(table::Dict{Integer,Set{Monomial}}; by_party::Bool=false)
+    if !by_party
+        return reduce(union!, values(table); init=Set{Monomial}())
+    else
+        return table
+    end
 end
 
 

@@ -176,9 +176,12 @@ julia> dichotomic(1, 1) - (2*projector(1, 1, 1) - Id)
 Id + A1 - 2 PA1|1
 ```
 
-Note that monomials and polynomials are different types (although they are
-occasionally printed the same), and it is possible to loop over the monomials
-and (nonzero) coefficients in a polynomial:
+
+## Analysing, modifying, and deconstructing operators
+
+Monomials and polynomials are objects of types, although a polynomial
+consisting of a single monomial multiplied by 1 is printed the same as a
+monomial:
 ```julia
 julia> P = projector(1, 1, 1)
 PA1|1
@@ -197,6 +200,89 @@ A1 B1 + A1 B2 + A2 B1 - A2 B2
 
 julia> typeof(S)
 Polynomial
+```
+If you need to ensure a given object is a polynomial you can "promote" it by
+calling `Polynomial()` on it. This does nothing if the argument is already a
+polynomial:
+```julia
+julia> x = Polynomial(1)
+Id
+
+julia> y = Polynomial(Id)
+Id
+
+julia> z = Polynomial(S)
+A1 B1 + A1 B2 + A2 B1 - A2 B2
+
+julia> typeof.([x, y, z])
+3-element Array{DataType,1}:
+ Polynomial
+ Polynomial
+ Polynomial
+```
+Note that, in the last case, the polynomial returned is the same as (and not
+a copy of) the original, which means that modifying `z` here will modify `S`
+since they are the same object:
+```julia
+julia> z === S
+true
+
+julia> z[A1] = 7
+7
+
+julia> S
+7 A1 + A1 B1 + A1 B2 + A2 B1 - A2 B2
+```
+If you want to create a copy of a polynomial that you can safely modify
+without changing the original you can call the `copy()` function to do this:
+```julia
+julia> S = A1*(B1 + B2) + A2*(B1 - B2)
+A1 B1 + A1 B2 + A2 B1 - A2 B2
+
+julia> z = copy(S)
+A1 B1 + A1 B2 + A2 B1 - A2 B2
+
+julia> z === S
+false
+
+julia> z[A1] = 7
+7
+
+julia> z
+7 A1 + A1 B1 + A1 B2 + A2 B1 - A2 B2
+
+julia> S
+A1 B1 + A1 B2 + A2 B1 - A2 B2
+```
+
+As the two above examples suggest, you can access and/or modify the
+coefficient associated to a given monomial using `[]`:
+```julia
+julia> S[A1*B1]
+1
+
+julia> S[A1]
+0
+```
+You can get all the monomials in a polynomial by calling the `monomials()`
+function on it:
+```julia
+julia> monomials(S)
+Base.KeySet for a Dict{Monomial,Number} with 4 entries. Keys:
+  A1 B2
+  A1 B1
+  A2 B1
+  A2 B2
+```
+Polynomials will also act as iterators over pairs of their monomials and
+nonzero coefficients in contexts where an iterator is expected:
+```julia
+julia> collect(S)
+4-element Array{Any,1}:
+ Pair{Monomial,Number}(A1 B2, 1)
+ Pair{Monomial,Number}(A1 B1, 1)
+ Pair{Monomial,Number}(A2 B1, 1)
+ Pair{Monomial,Number}(A2 B2, -1)
 
 julia> for (m, c) in S
            @printf "%s  =>  %2d\n" m c
@@ -205,7 +291,10 @@ A2 B1  =>   1
 A1 B2  =>   1
 A2 B2  =>  -1
 A1 B1  =>   1
-
+```
+If you want to iterate over the monomials in lexicographical order you can
+just call `sort()` on the polynomial first:
+```julia
 julia> for (m, c) in sort(S)
            @printf "%s  =>  %2d\n" m c
        end
@@ -214,6 +303,51 @@ A1 B2  =>   1
 A2 B1  =>   1
 A2 B2  =>  -1
 ```
+
+In order to help analyse a problem, there is a function `operators()` that
+can find and return all the individual (order 1) operators in one or more
+monomials and polynomials or collections of such operators. For instance, if
+we wanted to maximise the local guessing probability in the CHSH setting
+using full statistics we might represent the problem by an objective
+polynomial and a list of constraint polynomials whose expectation values we
+want to set to zero:
+```julia
+A1, A2 = dichotomic(1, 1:2)
+B1, B2 = dichotomic(2, 1:2)
+E1 = dichotomic(5, 1)
+
+objective = (1 + A1*E1)/2
+
+constraints = [A1, A2, B1, B2,
+               A1*B1 - 0.7,
+               A1*B2 - 0.7,
+               A2*B1 - 0.7,
+               A2*B2 - 0.7]
+```
+Assuming these variable definitions, we can use the `operators()` function to
+immediately find all the level-one operators in the problem:
+```julia
+julia> operators(objective, constraints)
+Set{Monomial} with 5 elements:
+  A2
+  A1
+  B1
+  B2
+  E1
+```
+`operators()` can optionally take a keyword argument `by_parties` which is
+set to `false` by default. Setting it to `true` groups the level-one
+operators by party and returns a dictionary of the parties and operators
+associated to those parties:
+```julia
+julia> operators(objective, constraints, by_party=true)
+Dict{Integer,Set{Monomial}} with 3 entries:
+  2 => Set(Monomial[B1, B2])
+  5 => Set(Monomial[E1])
+  1 => Set(Monomial[A2, A1])
+```
+This should be useful if we want to determine all the monomials in a problem
+at NPA levels like "1 + A B + A E + B E"...
 
 
 ## NPA example
