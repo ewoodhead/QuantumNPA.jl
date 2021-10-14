@@ -228,34 +228,34 @@ end
 
 
 
-struct Ketbra <: Operator
+struct KetBra <: Operator
     outputl::Integer
     outputr::Integer
     input::Integer
 end
 
-function print_op(io::IO, k::Ketbra)
+function print_op(io::IO, k::KetBra)
     @printf io "|%d><%d|%d" k.outputl k.outputr k.input
 end
 
-function print_op(io::IO, k::Ketbra, party::Integer)
+function print_op(io::IO, k::KetBra, party::Integer)
     @printf io "|%d><%d|%d%s" k.outputl k.outputr k.input party2string(party)
 end
 
-Base.hash(k::Ketbra, h::UInt) = hash((k.outputl, k.outputr, k.input), h)
+Base.hash(k::KetBra, h::UInt) = hash((k.outputl, k.outputr, k.input), h)
 
-function Base.:(==)(k::Ketbra, l::Ketbra)
+function Base.:(==)(k::KetBra, l::KetBra)
     return ((k.input == l.input) && (k.outputl == l.outputr)
             && (k.outputr == l.outputr))
 end
 
-function Base.isless(k::Ketbra, l::Ketbra)
+function Base.isless(k::KetBra, l::KetBra)
     ki, li = k.input, l.input
 
     return (k.input, k.outputl, k.outputr) < (l.input, l.outputl. l.outputr)
 end
 
-function Base.:*(p::Projector, k::Ketbra)
+function Base.:*(p::Projector, k::KetBra)
     if p.input == k.input
         if p.output == k.outputl
             return (1, [k])
@@ -267,7 +267,7 @@ function Base.:*(p::Projector, k::Ketbra)
     end
 end
 
-function Base.:*(k::Ketbra, p::Projector)
+function Base.:*(k::KetBra, p::Projector)
     if k.input == p.input
         if k.outputr == p.output
             return (1, [k])
@@ -279,7 +279,7 @@ function Base.:*(k::Ketbra, p::Projector)
     end
 end
 
-function Base.:*(k::Ketbra, l::Ketbra)
+function Base.:*(k::KetBra, l::KetBra)
     input = k.input
 
     if input == l.input
@@ -289,7 +289,7 @@ function Base.:*(k::Ketbra, l::Ketbra)
             kol, lor = k.outputl, l.outputr
 
             if kol != lor
-                return (1, [Ketbra(kol, lor, input)])
+                return (1, [KetBra(kol, lor, input)])
             else
                 return (1, [Projector(kol, input)])
             end
@@ -301,7 +301,7 @@ function Base.:*(k::Ketbra, l::Ketbra)
     end
 end
 
-Base.conj(k::Ketbra) = Ketbra(k.outputr, k.outputl, k.input)
+Base.conj(k::KetBra) = KetBra(k.outputr, k.outputl, k.input)
 
 
 
@@ -551,7 +551,7 @@ end
 
 function ketbra(party, outputl::Integer, outputr::Integer, input::Integer)
     op = ((outputl != outputr) ?
-          Ketbra(outputl, outputr, input) :
+          KetBra(outputl, outputr, input) :
           Projector(outputl, input))
     return Monomial(party, op)
 end
