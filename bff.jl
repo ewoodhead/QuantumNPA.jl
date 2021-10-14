@@ -650,16 +650,16 @@ function sgnnum(x::Number, p::String = "+", m::String = "-")
     elseif xr == 0
         return (csgn(xi, p, m), "$(num2str(abs(xi)))im")
     else
+        xis = num2str(abs(xi))
+
         if xr >= 0
             xrs = num2str(xr)
             s = csgn(xi)
-            xis = num2str(abs(xi))
             
             return (p, "($xrs $s $(xis)im)")
         else
             xrs = num2str(-xr)
             s = csgn(-xi)
-            xis = num2str(abs(xi))
 
             return (m, "($xrs $s $(xis)im)")
         end
