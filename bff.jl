@@ -89,8 +89,8 @@ alphabet = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J',
 
 
 
-"Converty party number to string, e.g., `party2string(3) = 'C'`."
-function party2string(p::Integer)
+"Return string representation of a party, e.g., `party_str(3) = \"C\"`."
+function party_str(p::Integer)
     base = length(alphabet)
     chars = Array{Char,1}()
 
@@ -103,10 +103,14 @@ function party2string(p::Integer)
     return String(reverse!(chars))
 end
 
-pos(c::Char) = first(indexin(c, alphabet))
+party_str(s::String) = s
+party_str(s::Symbol) = string(s)
 
-"Convert string to party number, e.g., `string2party(\"C\") = 3`."
-function string2party(s::String)
+
+pos(c::Char) = findfirst(isequal(c), alphabet)
+
+"Return integer representation of a party, e.g., `party_num(\"C\") = 3`."
+function party_num(s::String)
     base = length(alphabet)
     party = 0
 
@@ -115,6 +119,22 @@ function string2party(s::String)
     end
 
     return party
+end
+
+party_num(c::Char) = pos(c)
+party_num(s::Symbol) = party_num(string(s))
+party_num(n::Integer) = n
+
+"Split string into party and rest, e.g. \"AB1\" -> (\"AB\", \"1\")."
+function split_party(s::String)
+    k = findlast(in(alphabet), s)
+    return (s[1:k], s[k+1:end])
+end
+
+split_party(s::Symbol) = split_party(string(s))
+
+function range_expr(expr)
+    
 end
 
 
@@ -127,6 +147,8 @@ function Monomial(party::Integer, operator::Operator)
     @assert party > 0
     return Monomial([(party, [operator])])
 end
+
+Monomial(party, operator::Operator) = Monomial(party_num(party), operator)
 
 Id = Monomial([])
 
@@ -230,7 +252,7 @@ function print_op(io::IO, x::Dichotomic)
 end
 
 function print_op(io::IO, x::Dichotomic, party::Integer)
-    @printf io "%s%d" party2string(party) x.input
+    @printf io "%s%d" party_str(party) x.input
 end
 
 Base.hash(x::Dichotomic, h::UInt) = hash(x.input, h)
@@ -243,9 +265,28 @@ function Base.:*(x::Dichotomic, y::Dichotomic)
     return (x.input == y.input) ? (1, []) : (1, [x, y])
 end
 
-dichotomic(party, input::Integer) = Monomial(party, Dichotomic(input))
+function dichotomic(party, input::Integer)
+    Monomial(party, Dichotomic(input))
+end
 
 dichotomic(party, input::IndexRange) = [dichotomic(party, z) for z in input]
+
+function parse_dichotomic(expr)
+    if expr isa Symbol
+        (party, input) = split_party(expr)
+        name = Symbol(party)
+        return :($(esc(expr)) = dichotomic($party, $(parse(Int, input))))
+    else
+        name = expr.args[1]
+        range = expr.args[2]
+        return :($(esc(name)) = dichotomic($(QuoteNode(name)), $range))
+    end
+end
+
+macro dichotomic(expr...)
+    exprs = map(parse_dichotomic, expr)
+    return quote $(exprs...) end
+end
 
 
 
@@ -260,7 +301,7 @@ function print_op(io::IO, x::Fourier)
 end
 
 function print_op(io::IO, x::Fourier, party::Integer)
-    @printf io "%s%d^%d" party2string(party) x.input x.power
+    @printf io "%s%d^%d" party_str(party) x.input x.power
 end
 
 Base.hash(x::Fourier, h::UInt) = hash((x.input, x.power, x.d), h)
@@ -323,7 +364,7 @@ function print_op(io::IO, p::Projector)
 end
 
 function print_op(io::IO, p::Projector, party::Integer)
-    @printf io "P%s%d|%d" party2string(party) p.output p.input
+    @printf io "P%s%d|%d" party_str(party) p.output p.input
 end
 
 Base.hash(p::Projector, h::UInt) = hash((p.output, p.input), h)
@@ -406,7 +447,7 @@ function print_op(io::IO, k::KetBra)
 end
 
 function print_op(io::IO, k::KetBra, party::Integer)
-    @printf io "|%d><%d|%d%s" k.outputl k.outputr k.input party2string(party)
+    @printf io "|%d><%d|%d%s" k.outputl k.outputr k.input party_str(party)
 end
 
 Base.hash(k::KetBra, h::UInt) = hash((k.outputl, k.outputr, k.input), h)
@@ -504,7 +545,7 @@ function print_op(io::IO, u::Unitary)
 end
 
 function print_op(io::IO, u::Unitary, party::Integer)
-    @printf io "U%s%s%d" party2string(party) (u.conj ? "*" : "") u.index
+    @printf io "U%s%s%d" party_str(party) (u.conj ? "*" : "") u.index
 end
 
 Base.hash(u::Unitary, h::UInt) = hash((u.index, u.conj), h)
@@ -548,7 +589,7 @@ function print_op(io::IO, p::Zbff)
 end
 
 function print_op(io::IO, p::Zbff, party::Integer)
-    @printf io "Z%s%s%d" party2string(party) (p.conj ? "*" : "") p.index
+    @printf io "Z%s%s%d" party_str(party) (p.conj ? "*" : "") p.index
 end
 
 Base.hash(p::Operator, h::UInt) = hash((p.index, p.conj), h)
