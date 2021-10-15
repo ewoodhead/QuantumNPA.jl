@@ -1085,6 +1085,10 @@ function operators(m::Monomial; by_party::Bool=false)
     end
 end
 
+function operators(x::Number; by_party::Bool=false)
+    return !by_party ? Set{Monomial}() : Dict{Integer,Set{Monomial}}()
+end
+
 function operators(table::Dict{Integer,Set{Monomial}}; by_party::Bool=false)
     if !by_party
         return reduce(union!, values(table); init=Set{Monomial}())
