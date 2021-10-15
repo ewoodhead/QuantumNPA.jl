@@ -65,7 +65,6 @@ end
 # arguments are not the same type and are therefore not equal.
 Base.:(==)(x::Operator, y::Operator) = false
 
-
 # Default order. This again should be specialised for operators of the same
 # type so here we just see if the type names are ordered lexicographically.
 function Base.isless(x::Operator, y::Operator)
@@ -117,255 +116,6 @@ function string2party(s::String)
 
     return party
 end
-
-
-
-struct Dichotomic <: HermitianOperator
-    input::Integer
-end
-
-function print_op(io::IO, x::Dichotomic)
-    @printf io "_%d" x.input
-end
-
-function print_op(io::IO, x::Dichotomic, party::Integer)
-    @printf io "%s%d" party2string(party) x.input
-end
-
-Base.hash(x::Dichotomic, h::UInt) = hash(x.input, h)
-
-Base.:(==)(x::Dichotomic, y::Dichotomic) = (x.input == y.input)
-
-Base.isless(x::Dichotomic, y::Dichotomic) = (x.input < y.input)
-
-function Base.:*(x::Dichotomic, y::Dichotomic)
-    return (x.input == y.input) ? (1, []) : (1, [x, y])
-end
-
-
-
-struct Fourier <: Operator
-    input::Integer
-    power::Integer
-    d::Integer
-end
-
-function print_op(io::IO, x::Fourier)
-    @printf io "d%d^%d" x.input x.power
-end
-
-function print_op(io::IO, x::Fourier, party::Integer)
-    @printf io "%s%d^%d" party2string(party) x.input x.power
-end
-
-Base.hash(x::Fourier, h::UInt) = hash((x.input, x.power, x.d), h)
-
-function Base.:(==)(x::Fourier, y::Fourier)
-    return (x.d == y.d) && (x.input == y.input) && (x.power == y.power)
-end
-
-function Base.isless(x::Fourier, y::Fourier)
-    if x.d != y.d
-        return x.d < y.d
-    else
-        xi = x.input
-        yi = y.input
-        return (xi < yi) || ((xi == yi) && (x.power < y.power))
-    end
-end
-
-function Base.:*(x::Fourier, y::Fourier)
-    input = x.input
-    d = x.d
-
-    if (y.d != d) || (y.input != input)
-        return (1, [x, y])
-    else
-        p = (x.power + y.power) % d
-        return (1, ((p != 0) ? [Fourier(input, p, d)] : []))
-    end
-end
-
-Base.conj(x::Fourier) = Fourier(x.input, x.d - x.power, x.d)
-
-
-
-struct Projector <: HermitianOperator
-    output::Integer
-    input::Integer
-end
-
-function print_op(io::IO, p::Projector)
-    @printf io "P%d|%d" p.output p.input
-end
-
-function print_op(io::IO, p::Projector, party::Integer)
-    @printf io "P%s%d|%d" party2string(party) p.output p.input
-end
-
-Base.hash(p::Projector, h::UInt) = hash((p.output, p.input), h)
-
-function Base.:(==)(p::Projector, q::Projector)
-    return (p.input == q.input) && (p.output == q.output)
-end
-
-function Base.isless(p::Projector, q::Projector)
-    pi, qi = p.input, q.input
-    return (pi < qi) || ((pi == qi) && (p.output < q.output))
-end
-
-function Base.:*(p::Projector, q::Projector)
-    if p.input == q.input
-        if p.output == q.output
-            return (1, [p])
-        else
-            return (0, Array{Projector,1}())
-        end
-    else
-        return (1, [p, q])
-    end
-end
-
-
-
-struct KetBra <: Operator
-    outputl::Integer
-    outputr::Integer
-    input::Integer
-end
-
-function print_op(io::IO, k::KetBra)
-    @printf io "|%d><%d|%d" k.outputl k.outputr k.input
-end
-
-function print_op(io::IO, k::KetBra, party::Integer)
-    @printf io "|%d><%d|%d%s" k.outputl k.outputr k.input party2string(party)
-end
-
-Base.hash(k::KetBra, h::UInt) = hash((k.outputl, k.outputr, k.input), h)
-
-function Base.:(==)(k::KetBra, l::KetBra)
-    return ((k.input == l.input) && (k.outputl == l.outputr)
-            && (k.outputr == l.outputr))
-end
-
-function Base.isless(k::KetBra, l::KetBra)
-    ki, li = k.input, l.input
-
-    return (k.input, k.outputl, k.outputr) < (l.input, l.outputl. l.outputr)
-end
-
-function Base.:*(p::Projector, k::KetBra)
-    if p.input == k.input
-        if p.output == k.outputl
-            return (1, [k])
-        else
-            return (0, Array{Projector,1}())
-        end
-    else
-        return (1, [p, k])
-    end
-end
-
-function Base.:*(k::KetBra, p::Projector)
-    if k.input == p.input
-        if k.outputr == p.output
-            return (1, [k])
-        else
-            return (0, Array{Projector,1}())
-        end
-    else
-        return (1, [k, p])
-    end
-end
-
-function Base.:*(k::KetBra, l::KetBra)
-    input = k.input
-
-    if input == l.input
-        kor, lol = k.outputr, l.outputl
-        
-        if kor == lol
-            kol, lor = k.outputl, l.outputr
-
-            if kol != lor
-                return (1, [KetBra(kol, lor, input)])
-            else
-                return (1, [Projector(kol, input)])
-            end
-        else
-            return (0, Array{Projector,1}())
-        end
-    else
-        return (1, [k, p])
-    end
-end
-
-Base.conj(k::KetBra) = KetBra(k.outputr, k.outputl, k.input)
-
-
-
-struct Unitary <: Operator
-    index::Integer
-    conj::Bool
-end
-
-function print_op(io::IO, u::Unitary)
-    @printf io "U%s%d" (u.conj ? "*" : "") u.index
-end
-
-function print_op(io::IO, u::Unitary, party::Integer)
-    @printf io "U%s%s%d" party2string(party) (u.conj ? "*" : "") u.index
-end
-
-Base.hash(u::Unitary, h::UInt) = hash((u.index, u.conj), h)
-
-function Base.:(==)(u::Unitary, v::Unitary)
-    return (u.index == v.index) && (u.conj == v.conj)
-end
-
-function Base.isless(u::Unitary, v::Unitary)
-    ui, vi = u.index, v.index
-    return (ui < vi) || ((ui == vi) && !u.conj && v.conj)
-end
-
-function Base.:*(u::Unitary, v::Unitary)
-    if (u.index != v.index) || (u.conj == v.conj)
-        return (1, [u, v])
-    else
-        return (1, [])
-    end
-end
-
-Base.conj(u::Unitary) = Unitary(u.index, !u.conj)
-
-
-
-struct Zbff <: Operator
-    index::Integer
-    conj::Bool
-end
-
-function print_op(io::IO, p::Zbff)
-    @printf io "Z%s%d" (p.conj ? "*" : "") p.index
-end
-
-function print_op(io::IO, p::Zbff, party::Integer)
-    @printf io "Z%s%s%d" party2string(party) (p.conj ? "*" : "") p.index
-end
-
-Base.hash(p::Operator, h::UInt) = hash((p.index, p.conj), h)
-
-function Base.:(==)(p::Zbff, q::Zbff)
-    return (p.index == q.index) && (p.conj == q.conj)
-end
-
-function Base.isless(p::Zbff, q::Zbff)
-    pi, qi = p.index, q.index
-    return (pi < qi) || ((pi == qi) && !p.conj && q.conj)
-end
-
-Base.conj(p::Zbff) = Zbff(p.index, !p.conj)
 
 
 
@@ -471,17 +221,77 @@ IndexRange = Union{UnitRange{<:Integer},
                    StepRange{<:Integer,<:Integer},
                    Array{<:Integer}}
 
-
-
-function dichotomic(party, input::Integer)
-    return Monomial(party, Dichotomic(input))
+struct Dichotomic <: HermitianOperator
+    input::Integer
 end
 
-function dichotomic(party, input::IndexRange)
-    return [dichotomic(party, z) for z in input]
+function print_op(io::IO, x::Dichotomic)
+    @printf io "_%d" x.input
 end
 
+function print_op(io::IO, x::Dichotomic, party::Integer)
+    @printf io "%s%d" party2string(party) x.input
+end
 
+Base.hash(x::Dichotomic, h::UInt) = hash(x.input, h)
+
+Base.:(==)(x::Dichotomic, y::Dichotomic) = (x.input == y.input)
+
+Base.isless(x::Dichotomic, y::Dichotomic) = (x.input < y.input)
+
+function Base.:*(x::Dichotomic, y::Dichotomic)
+    return (x.input == y.input) ? (1, []) : (1, [x, y])
+end
+
+dichotomic(party, input::Integer) = Monomial(party, Dichotomic(input))
+
+dichotomic(party, input::IndexRange) = [dichotomic(party, z) for z in input]
+
+
+
+struct Fourier <: Operator
+    input::Integer
+    power::Integer
+    d::Integer
+end
+
+function print_op(io::IO, x::Fourier)
+    @printf io "d%d^%d" x.input x.power
+end
+
+function print_op(io::IO, x::Fourier, party::Integer)
+    @printf io "%s%d^%d" party2string(party) x.input x.power
+end
+
+Base.hash(x::Fourier, h::UInt) = hash((x.input, x.power, x.d), h)
+
+function Base.:(==)(x::Fourier, y::Fourier)
+    return (x.d == y.d) && (x.input == y.input) && (x.power == y.power)
+end
+
+function Base.isless(x::Fourier, y::Fourier)
+    if x.d != y.d
+        return x.d < y.d
+    else
+        xi = x.input
+        yi = y.input
+        return (xi < yi) || ((xi == yi) && (x.power < y.power))
+    end
+end
+
+function Base.:*(x::Fourier, y::Fourier)
+    input = x.input
+    d = x.d
+
+    if (y.d != d) || (y.input != input)
+        return (1, [x, y])
+    else
+        p = (x.power + y.power) % d
+        return (1, ((p != 0) ? [Fourier(input, p, d)] : []))
+    end
+end
+
+Base.conj(x::Fourier) = Fourier(x.input, x.d - x.power, x.d)
 
 function fourier(party, input::Integer, power::Integer, d::Integer)
     @assert d > 0
@@ -502,6 +312,42 @@ function fourier(party, input::IndexRange, power::IndexRange, d::Integer)
 end
 
 
+
+struct Projector <: HermitianOperator
+    output::Integer
+    input::Integer
+end
+
+function print_op(io::IO, p::Projector)
+    @printf io "P%d|%d" p.output p.input
+end
+
+function print_op(io::IO, p::Projector, party::Integer)
+    @printf io "P%s%d|%d" party2string(party) p.output p.input
+end
+
+Base.hash(p::Projector, h::UInt) = hash((p.output, p.input), h)
+
+function Base.:(==)(p::Projector, q::Projector)
+    return (p.input == q.input) && (p.output == q.output)
+end
+
+function Base.isless(p::Projector, q::Projector)
+    pi, qi = p.input, q.input
+    return (pi < qi) || ((pi == qi) && (p.output < q.output))
+end
+
+function Base.:*(p::Projector, q::Projector)
+    if p.input == q.input
+        if p.output == q.output
+            return (1, [p])
+        else
+            return (0, Array{Projector,1}())
+        end
+    else
+        return (1, [p, q])
+    end
+end
 
 function projector(party, output::Integer, input::Integer)
     return Monomial(party, Projector(output, input))
@@ -549,6 +395,81 @@ end
 
 
 
+struct KetBra <: Operator
+    outputl::Integer
+    outputr::Integer
+    input::Integer
+end
+
+function print_op(io::IO, k::KetBra)
+    @printf io "|%d><%d|%d" k.outputl k.outputr k.input
+end
+
+function print_op(io::IO, k::KetBra, party::Integer)
+    @printf io "|%d><%d|%d%s" k.outputl k.outputr k.input party2string(party)
+end
+
+Base.hash(k::KetBra, h::UInt) = hash((k.outputl, k.outputr, k.input), h)
+
+function Base.:(==)(k::KetBra, l::KetBra)
+    return ((k.input == l.input) && (k.outputl == l.outputr)
+            && (k.outputr == l.outputr))
+end
+
+function Base.isless(k::KetBra, l::KetBra)
+    ki, li = k.input, l.input
+
+    return (k.input, k.outputl, k.outputr) < (l.input, l.outputl. l.outputr)
+end
+
+function Base.:*(p::Projector, k::KetBra)
+    if p.input == k.input
+        if p.output == k.outputl
+            return (1, [k])
+        else
+            return (0, Array{Projector,1}())
+        end
+    else
+        return (1, [p, k])
+    end
+end
+
+function Base.:*(k::KetBra, p::Projector)
+    if k.input == p.input
+        if k.outputr == p.output
+            return (1, [k])
+        else
+            return (0, Array{Projector,1}())
+        end
+    else
+        return (1, [k, p])
+    end
+end
+
+function Base.:*(k::KetBra, l::KetBra)
+    input = k.input
+
+    if input == l.input
+        kor, lol = k.outputr, l.outputl
+        
+        if kor == lol
+            kol, lor = k.outputl, l.outputr
+
+            if kol != lor
+                return (1, [KetBra(kol, lor, input)])
+            else
+                return (1, [Projector(kol, input)])
+            end
+        else
+            return (0, Array{Projector,1}())
+        end
+    else
+        return (1, [k, p])
+    end
+end
+
+Base.conj(k::KetBra) = KetBra(k.outputr, k.outputl, k.input)
+
 function ketbra(party, outputl::Integer, outputr::Integer, input::Integer)
     op = ((outputl != outputr) ?
           KetBra(outputl, outputr, input) :
@@ -573,6 +494,40 @@ end
 
 
 
+struct Unitary <: Operator
+    index::Integer
+    conj::Bool
+end
+
+function print_op(io::IO, u::Unitary)
+    @printf io "U%s%d" (u.conj ? "*" : "") u.index
+end
+
+function print_op(io::IO, u::Unitary, party::Integer)
+    @printf io "U%s%s%d" party2string(party) (u.conj ? "*" : "") u.index
+end
+
+Base.hash(u::Unitary, h::UInt) = hash((u.index, u.conj), h)
+
+function Base.:(==)(u::Unitary, v::Unitary)
+    return (u.index == v.index) && (u.conj == v.conj)
+end
+
+function Base.isless(u::Unitary, v::Unitary)
+    ui, vi = u.index, v.index
+    return (ui < vi) || ((ui == vi) && !u.conj && v.conj)
+end
+
+function Base.:*(u::Unitary, v::Unitary)
+    if (u.index != v.index) || (u.conj == v.conj)
+        return (1, [u, v])
+    else
+        return (1, [])
+    end
+end
+
+Base.conj(u::Unitary) = Unitary(u.index, !u.conj)
+
 function unitary(party, index::Integer, conj=false)
     return Monomial(party, Unitary(index, conj))
 end
@@ -583,9 +538,33 @@ end
 
 
 
-function zbff(party, index::Integer, conj=false)
-    return Monomial(party, Zbff(index, conj))
+struct Zbff <: Operator
+    index::Integer
+    conj::Bool
 end
+
+function print_op(io::IO, p::Zbff)
+    @printf io "Z%s%d" (p.conj ? "*" : "") p.index
+end
+
+function print_op(io::IO, p::Zbff, party::Integer)
+    @printf io "Z%s%s%d" party2string(party) (p.conj ? "*" : "") p.index
+end
+
+Base.hash(p::Operator, h::UInt) = hash((p.index, p.conj), h)
+
+function Base.:(==)(p::Zbff, q::Zbff)
+    return (p.index == q.index) && (p.conj == q.conj)
+end
+
+function Base.isless(p::Zbff, q::Zbff)
+    pi, qi = p.index, q.index
+    return (pi < qi) || ((pi == qi) && !p.conj && q.conj)
+end
+
+Base.conj(p::Zbff) = Zbff(p.index, !p.conj)
+
+zbff(party, index::Integer, conj=false) = Monomial(party, Zbff(index, conj))
 
 function zbff(party, index::IndexRange, conj=false)
     return [zbff(party, i, conj) for i in index]
