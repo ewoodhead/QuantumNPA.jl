@@ -1062,7 +1062,7 @@ operators(s...; by_party::Bool=false) = operators(s; by_party)
 
 function operators(itr; by_party::Bool=false)
     if !by_party
-        return Set(flatten(map(operators, itr)))
+        return Set{Monomial}(flatten(map(operators, itr)))
     else
         return add_monomials!(Dict{Integer,Set{Monomial}}(), itr)
     end
@@ -1070,7 +1070,7 @@ end
 
 function operators(p::Polynomial; by_party::Bool=false)
     if !by_party
-        return Set(flatten(operators(m) for m in monomials(p)))
+        return Set{Monomial}(flatten(operators(m) for m in monomials(p)))
     else
         return add_monomials!(Dict{Integer,Set{Monomial}}(), p)
     end
@@ -1079,7 +1079,8 @@ end
 "Return all the individual operators making up a monomial."
 function operators(m::Monomial; by_party::Bool=false)
     if !by_party
-        return Set(Monomial(p, o) for (p, ops) in m for o in ops)
+        return Set{Monomial}(Monomial(p, o)
+                             for (p, ops) in m for o in ops)
     else
         return add_monomials!(Dict{Integer,Set{Monomial}}(), m)
     end
