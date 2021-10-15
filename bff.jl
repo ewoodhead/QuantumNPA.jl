@@ -1078,7 +1078,7 @@ end
 
 
 "Return all the individual (order 1) operators in the arguments."
-operators(s...; by_party::Bool=false) = operators(s; by_party)
+operators(s...; by_party::Bool=false) = operators(s; by_party=by_party)
 
 function operators(itr; by_party::Bool=false)
     if !by_party
