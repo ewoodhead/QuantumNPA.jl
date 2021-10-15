@@ -235,7 +235,7 @@ function Base.adjoint(m::Monomial)
                      for (party, ops) in m])
 end
 
-Base.zero(m::Monomial) = Polynomial()
+Base.zero(m::Monomial) = 0
 
 
 
@@ -624,7 +624,7 @@ Polynomial(x::Number) = Polynomial((x != 0) ? Dict(Id => demote(x)) : Dict())
 Polynomial(x::Monomial) = Polynomial(Dict(x => 1))
 
 function Polynomial(x::Number, y::Monomial)
-    return (x != 0) ? Polynomial(Dict(y => demote(x))) : 0
+    return (x != 0) ? Polynomial(Dict(y => demote(x))) : Polynomial()
 end
 
 Polynomial(x::Polynomial) = x
