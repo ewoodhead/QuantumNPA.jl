@@ -885,7 +885,7 @@ function Base.:*(x::Monomial, y::Monomial)
 
     m = Monomial(word)
 
-    return (coeff == 1) ? m : Polynomial(m, word)
+    return (coeff == 1) ? m : Polynomial(coeff, m)
 end
 
 function Base.:*(x::Number, y::Polynomial)
@@ -1122,8 +1122,8 @@ substitute(p::Polynomial, x, m) = substitute!(copy(p), x, m)
 
 
 function cglmp(d::Integer)
-    PA = projector(1, 1:d, 1:2, true)
-    PB = projector(2, 1:d, 1:2, true)
+    PA = projector(1, 1:d, 1:2; full=true)
+    PB = projector(2, 1:d, 1:2; full=true)
 
     d1 = d - 1
 
