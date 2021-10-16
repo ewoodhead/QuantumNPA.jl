@@ -293,45 +293,33 @@ as well as a constructor method with the name in lowercase (e.g., projector)
 that creates a monomial containing a single operator associated to a given
 party.
 
-If one of the fields is named :conj a Base.conj method is also generated.
+If one of the fields is named conj a Base.conj method is also generated.
 """
-macro operator(name::Symbol, fields, fmt_party, fmt_noparty, order=nothing)
+macro operator(ctor::Expr, fmt_party, fmt_noparty, order=nothing)
+    name = ctor.args[1]
+    fields = ctor.args[2:end]
     lcname = Symbol(lowercase(string(name)))
 
-    fields = getfields(fields)
     fieldnames = getfieldnames(fields)
 
-    xfnames = instance_fields(:x, fieldnames)
-    xfields = :($(instance_fields(:x, order)...),)
-
     if :conj in fieldnames
-        nconj = filter(!isequal(:conj), fieldnames)
-
-        cxfields = replace(xfnames, :(x.conj) => :(!x.conj))
+        cxfields = replace(instance_fields(:x, fieldnames),
+                           :(x.conj) => :(!x.conj))
         conjf = :( Base.conj(x::$name) = $name($(cxfields...)) )
-
         cargs = map(conjfalse, fields)
     else
         conjf = nothing
         cargs = fields
     end
 
-    order = if isnothing(order)
-                reverse(fieldnames)
-            else
-                getfields(order)
-            end
-
-    println(typeof(fieldnames))
-    println(typeof(order))
-
+    order = (isnothing(order) ? reverse(fieldnames) : getfields(order))
     xfields = :($(instance_fields(:x, order)...),)
     yfields = :($(instance_fields(:y, order)...),)
 
     strf_party = stringfdef(name, fmt_party)
     strf_noparty = stringfdef(name, fmt_noparty)
 
-    functions = filter(!isnothing, (strf_party, strf_noparty, conjf))
+    methods = filter(!isnothing, (strf_party, strf_noparty, conjf))
 
     return quote
         struct $name <: Operator
@@ -340,7 +328,7 @@ macro operator(name::Symbol, fields, fmt_party, fmt_noparty, order=nothing)
         Base.hash(x::$name, h::UInt) = hash($xfields, h)
         Base.:(==)(x::$name, y::$name) = ($xfields == $yfields)
         Base.isless(x::$name, y::$name) = ($xfields < $yfields)
-        $(functions...)
+        $(methods...)
         function $(esc(lcname))(party, $(cargs...))
             return Monomial(party, $name($(fieldnames...)))
         end
@@ -349,7 +337,7 @@ end
 
 
 
-@operator Dichotomic input::Integer "$party$input" "/$input"
+@operator Dichotomic(input::Integer) "$party$input" "/$input"
 
 function Base.:*(x::Dichotomic, y::Dichotomic)
     return (x.input == y.input) ? (1, []) : (1, [x, y])
@@ -376,8 +364,7 @@ end
 
 
 
-@operator(Fourier,
-          (input::Integer, power::Integer, d::Integer),
+@operator(Fourier(input::Integer, power::Integer, d::Integer),
           "$party$input^$power",
           "$input^$power",
           (d, input, power))
@@ -416,8 +403,7 @@ end
 
 
 
-@operator(Projector,
-          (output::Integer, input::Integer),
+@operator(Projector(output::Integer, input::Integer),
           "P$party$output|$input",
           "P$output|$input")
 
@@ -479,8 +465,7 @@ end
 
 
 
-@operator(KetBra,
-          (outputl::Integer, outputr::Integer, input::Integer),
+@operator(KetBra(outputl::Integer, outputr::Integer, input::Integer),
           "|$outputl><$outputr|$input$party",
           "|$outputl><$outputr|$input")
 
@@ -556,8 +541,7 @@ end
 
 
 
-@operator(Unitary,
-          (index::Integer, conj::Bool),
+@operator(Unitary(index::Integer, conj::Bool),
           "U$party$conj$index",
           "U$conj$index")
 
@@ -575,8 +559,7 @@ end
 
 
 
-@operator(Zbff,
-          (index::Integer, conj::Bool),
+@operator(Zbff(index::Integer, conj::Bool),
           "Z$party$conj$index",
           "Z$conj$index")
 
