@@ -1,5 +1,3 @@
-#using Printf
-#  @printf
 #using Base.Iterators
 #  flatten, zip
 
@@ -71,15 +69,12 @@ function Base.isless(x::Operator, y::Operator)
     return isless(nameof(typeof(x)), nameof(typeof(y)))
 end
 
+# This needs to be redefined for operators that aren't Hermitian.
+Base.conj(o::Operator) = o
+
 Base.adjoint(o::Operator) = conj(o)
 
-Base.show(io::IO, o::Operator) = print_op(io, o)
-
-
-
-abstract type HermitianOperator <: Operator end
-
-Base.conj(h::HermitianOperator) = h
+Base.show(io::IO, o::Operator) = print(io, string(o))
 
 
 
@@ -170,7 +165,7 @@ function Base.show(io::IO, m::Monomial)
         for (party, ops) in m
             for o in ops
                 print(io, sep)
-                print_op(io, o, party)
+                print(io, string(o, party))
                 sep = " "
             end
         end
@@ -239,34 +234,114 @@ Base.zero(m::Monomial) = 0
 
 
 
-IndexRange = Union{UnitRange{<:Integer},
-                   StepRange{<:Integer,<:Integer},
-                   Array{<:Integer}}
+IndexRange = Union{UnitRange{<:Integer},Array{<:Integer}}
 
-struct Dichotomic <: HermitianOperator
-    input::Integer
+getfields(expr) = (expr.head == :tuple) ? expr.args : [expr]
+getfieldnames(fields) = map(argname, fields)
+
+argname(arg::Symbol) = arg
+argname(arg::Expr) = arg.args[1]
+
+function conjfalse(field)
+    if argname(field) === :conj
+        return Expr(:kw, field, false)
+    else
+        return field
+    end
 end
 
-function print_op(io::IO, x::Dichotomic)
-    @printf io "_%d" x.input
+instance_fields(instance, names) = [:($instance.$f) for f in names]
+
+function stringfdef(name, fmt)
+    fieldnames = [f for f in fmt.args if f isa Symbol]
+
+    args = if (:party in fieldnames)
+               (:(x::$name), :(party::Integer))
+           else
+               (:(x::$name),)
+           end
+
+    function fix_special(f)
+        if f === :conj
+            return :((x.$f ? "*" : ""))
+        elseif f === :party
+            return :(party_str(party))
+        else
+            return :(x.$f)
+        end
+    end
+    
+    bindings = (:($f = $(fix_special(f))) for f in fieldnames)
+
+    return :(function Base.string($(args...))
+                 $(bindings...)
+                 return $fmt
+             end)
 end
 
-function print_op(io::IO, x::Dichotomic, party::Integer)
-    @printf io "%s%d" party_str(party) x.input
+"""
+Define a new type of operator with a given name (e.g., Projector), fields,
+and format string. In addition to generating the struct defintion this also
+generates method definitions for the following generic functions:
+
+  * Base.hash,
+  * Base.:(==),
+  * Base.isless,
+  * Base.string,
+
+as well as a constructor method with the name in lowercase (e.g., projector)
+that creates a monomial containing a single operator associated to a given
+party.
+
+If one of the fields is named :conj a Base.conj method is also generated.
+"""
+macro operator(name::Symbol, fields, fmt_party, fmt_noparty)
+    lcname = Symbol(lowercase(string(name)))
+
+    fields = getfields(fields)
+    fieldnames = getfieldnames(fields)
+
+    xfnames = instance_fields(:x, fieldnames)
+    xfields = :($(xfnames...),)
+    yfields = :($(instance_fields(:y, fieldnames)...),)
+
+    if :conj in fieldnames
+        nconj = filter(!isequal(:conj), fieldnames)
+
+        cxfields = replace(xfnames, :(x.conj) => :(!x.conj))
+        conjf = :( Base.conj(x::$name) = $name($(cxfields...)) )
+
+        cargs = map(conjfalse, fields)
+    else
+        conjf = nothing
+        cargs = fields
+    end
+
+    strf_party = stringfdef(name, fmt_party)
+    strf_noparty = stringfdef(name, fmt_noparty)
+
+    functions = filter(!isnothing, (strf_party, strf_noparty, conjf))
+
+    return quote
+        struct $name <: Operator
+            $(fields...)
+        end
+        Base.hash(x::$name, h::UInt) = hash($xfields, h)
+        Base.:(==)(x::$name, y::$name) = ($xfields == $yfields)
+        Base.isless(x::$name, y::$name) = ($xfields < $yfields)
+        $(functions...)
+        function $(esc(lcname))(party, $(cargs...))
+            return Monomial(party, $name($(fieldnames...)))
+        end
+    end
 end
 
-Base.hash(x::Dichotomic, h::UInt) = hash(x.input, h)
 
-Base.:(==)(x::Dichotomic, y::Dichotomic) = (x.input == y.input)
 
-Base.isless(x::Dichotomic, y::Dichotomic) = (x.input < y.input)
+@operator Dichotomic input::Integer "$party$input" "/$input"
 
 function Base.:*(x::Dichotomic, y::Dichotomic)
     return (x.input == y.input) ? (1, []) : (1, [x, y])
-end
-
-function dichotomic(party, input::Integer)
-    Monomial(party, Dichotomic(input))
 end
 
 dichotomic(party, input::IndexRange) = [dichotomic(party, z) for z in input]
@@ -290,35 +365,10 @@ end
 
 
 
-struct Fourier <: Operator
-    input::Integer
-    power::Integer
-    d::Integer
-end
-
-function print_op(io::IO, x::Fourier)
-    @printf io "d%d^%d" x.input x.power
-end
-
-function print_op(io::IO, x::Fourier, party::Integer)
-    @printf io "%s%d^%d" party_str(party) x.input x.power
-end
-
-Base.hash(x::Fourier, h::UInt) = hash((x.input, x.power, x.d), h)
-
-function Base.:(==)(x::Fourier, y::Fourier)
-    return (x.d == y.d) && (x.input == y.input) && (x.power == y.power)
-end
-
-function Base.isless(x::Fourier, y::Fourier)
-    if x.d != y.d
-        return x.d < y.d
-    else
-        xi = x.input
-        yi = y.input
-        return (xi < yi) || ((xi == yi) && (x.power < y.power))
-    end
-end
+@operator(Fourier,
+          (d::Integer, input::Integer, power::Integer),
+          "$party$input^$power",
+          "$input^$power")
 
 function Base.:*(x::Fourier, y::Fourier)
     input = x.input
@@ -354,29 +404,10 @@ end
 
 
 
-struct Projector <: HermitianOperator
-    output::Integer
-    input::Integer
-end
-
-function print_op(io::IO, p::Projector)
-    @printf io "P%d|%d" p.output p.input
-end
-
-function print_op(io::IO, p::Projector, party::Integer)
-    @printf io "P%s%d|%d" party_str(party) p.output p.input
-end
-
-Base.hash(p::Projector, h::UInt) = hash((p.output, p.input), h)
-
-function Base.:(==)(p::Projector, q::Projector)
-    return (p.input == q.input) && (p.output == q.output)
-end
-
-function Base.isless(p::Projector, q::Projector)
-    pi, qi = p.input, q.input
-    return (pi < qi) || ((pi == qi) && (p.output < q.output))
-end
+@operator(Projector,
+          (input::Integer, output::Integer),
+          "P$party$output|$input",
+          "P$output|$input")
 
 function Base.:*(p::Projector, q::Projector)
     if p.input == q.input
@@ -436,32 +467,10 @@ end
 
 
 
-struct KetBra <: Operator
-    outputl::Integer
-    outputr::Integer
-    input::Integer
-end
-
-function print_op(io::IO, k::KetBra)
-    @printf io "|%d><%d|%d" k.outputl k.outputr k.input
-end
-
-function print_op(io::IO, k::KetBra, party::Integer)
-    @printf io "|%d><%d|%d%s" k.outputl k.outputr k.input party_str(party)
-end
-
-Base.hash(k::KetBra, h::UInt) = hash((k.outputl, k.outputr, k.input), h)
-
-function Base.:(==)(k::KetBra, l::KetBra)
-    return ((k.input == l.input) && (k.outputl == l.outputr)
-            && (k.outputr == l.outputr))
-end
-
-function Base.isless(k::KetBra, l::KetBra)
-    ki, li = k.input, l.input
-
-    return (k.input, k.outputl, k.outputr) < (l.input, l.outputl. l.outputr)
-end
+@operator(KetBra,
+          (input::Integer, outputl::Integer, outputr::Integer),
+          "|$outputl><$outputr|$input$party",
+          "|$outputl><$outputr|$input")
 
 function Base.:*(p::Projector, k::KetBra)
     if p.input == k.input
@@ -535,29 +544,10 @@ end
 
 
 
-struct Unitary <: Operator
-    index::Integer
-    conj::Bool
-end
-
-function print_op(io::IO, u::Unitary)
-    @printf io "U%s%d" (u.conj ? "*" : "") u.index
-end
-
-function print_op(io::IO, u::Unitary, party::Integer)
-    @printf io "U%s%s%d" party_str(party) (u.conj ? "*" : "") u.index
-end
-
-Base.hash(u::Unitary, h::UInt) = hash((u.index, u.conj), h)
-
-function Base.:(==)(u::Unitary, v::Unitary)
-    return (u.index == v.index) && (u.conj == v.conj)
-end
-
-function Base.isless(u::Unitary, v::Unitary)
-    ui, vi = u.index, v.index
-    return (ui < vi) || ((ui == vi) && !u.conj && v.conj)
-end
+@operator(Unitary,
+          (index::Integer, conj::Bool),
+          "U$party$conj$index",
+          "U$conj$index")
 
 function Base.:*(u::Unitary, v::Unitary)
     if (u.index != v.index) || (u.conj == v.conj)
@@ -566,8 +556,6 @@ function Base.:*(u::Unitary, v::Unitary)
         return (1, [])
     end
 end
-
-Base.conj(u::Unitary) = Unitary(u.index, !u.conj)
 
 function unitary(party, index::Integer, conj=false)
     return Monomial(party, Unitary(index, conj))
@@ -579,31 +567,10 @@ end
 
 
 
-struct Zbff <: Operator
-    index::Integer
-    conj::Bool
-end
-
-function print_op(io::IO, p::Zbff)
-    @printf io "Z%s%d" (p.conj ? "*" : "") p.index
-end
-
-function print_op(io::IO, p::Zbff, party::Integer)
-    @printf io "Z%s%s%d" party_str(party) (p.conj ? "*" : "") p.index
-end
-
-Base.hash(p::Operator, h::UInt) = hash((p.index, p.conj), h)
-
-function Base.:(==)(p::Zbff, q::Zbff)
-    return (p.index == q.index) && (p.conj == q.conj)
-end
-
-function Base.isless(p::Zbff, q::Zbff)
-    pi, qi = p.index, q.index
-    return (pi < qi) || ((pi == qi) && !p.conj && q.conj)
-end
-
-Base.conj(p::Zbff) = Zbff(p.index, !p.conj)
+@operator(Zbff,
+          (index::Integer, conj::Bool),
+          "Z$party$conj$index",
+          "Z$conj$index")
 
 zbff(party, index::Integer, conj=false) = Monomial(party, Zbff(index, conj))
 

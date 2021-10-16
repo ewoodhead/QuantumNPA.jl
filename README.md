@@ -8,8 +8,6 @@ copy/adapt some of the code in it and move to `bff.jl`).
 
 Use `bff.jl` like this:
 ```julia
-julia> using Printf
-
 julia> using Base.Iterators
 
 julia> include("bff.jl")
