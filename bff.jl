@@ -295,15 +295,14 @@ party.
 
 If one of the fields is named :conj a Base.conj method is also generated.
 """
-macro operator(name::Symbol, fields, fmt_party, fmt_noparty)
+macro operator(name::Symbol, fields, fmt_party, fmt_noparty, order=nothing)
     lcname = Symbol(lowercase(string(name)))
 
     fields = getfields(fields)
     fieldnames = getfieldnames(fields)
 
     xfnames = instance_fields(:x, fieldnames)
-    xfields = :($(xfnames...),)
-    yfields = :($(instance_fields(:y, fieldnames)...),)
+    xfields = :($(instance_fields(:x, order)...),)
 
     if :conj in fieldnames
         nconj = filter(!isequal(:conj), fieldnames)
@@ -316,6 +315,18 @@ macro operator(name::Symbol, fields, fmt_party, fmt_noparty)
         conjf = nothing
         cargs = fields
     end
+
+    order = if isnothing(order)
+                reverse(fieldnames)
+            else
+                getfields(order)
+            end
+
+    println(typeof(fieldnames))
+    println(typeof(order))
+
+    xfields = :($(instance_fields(:x, order)...),)
+    yfields = :($(instance_fields(:y, order)...),)
 
     strf_party = stringfdef(name, fmt_party)
     strf_noparty = stringfdef(name, fmt_noparty)
@@ -366,9 +377,10 @@ end
 
 
 @operator(Fourier,
-          (d::Integer, input::Integer, power::Integer),
+          (input::Integer, power::Integer, d::Integer),
           "$party$input^$power",
-          "$input^$power")
+          "$input^$power",
+          (d, input, power))
 
 function Base.:*(x::Fourier, y::Fourier)
     input = x.input
@@ -405,7 +417,7 @@ end
 
 
 @operator(Projector,
-          (input::Integer, output::Integer),
+          (output::Integer, input::Integer),
           "P$party$output|$input",
           "P$output|$input")
 
@@ -468,7 +480,7 @@ end
 
 
 @operator(KetBra,
-          (input::Integer, outputl::Integer, outputr::Integer),
+          (outputl::Integer, outputr::Integer, input::Integer),
           "|$outputl><$outputr|$input$party",
           "|$outputl><$outputr|$input")
 
@@ -557,10 +569,6 @@ function Base.:*(u::Unitary, v::Unitary)
     end
 end
 
-function unitary(party, index::Integer, conj=false)
-    return Monomial(party, Unitary(index, conj))
-end
-
 function unitary(party, index::IndexRange, conj=false)
     return [unitary(party, i, conj) for i in index]
 end
@@ -571,8 +579,6 @@ end
           (index::Integer, conj::Bool),
           "Z$party$conj$index",
           "Z$conj$index")
-
-zbff(party, index::Integer, conj=false) = Monomial(party, Zbff(index, conj))
 
 function zbff(party, index::IndexRange, conj=false)
     return [zbff(party, i, conj) for i in index]
