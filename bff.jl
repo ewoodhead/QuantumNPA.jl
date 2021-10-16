@@ -252,6 +252,19 @@ end
 
 instance_fields(instance, names) = [:($instance.$f) for f in names]
 
+function fmt_remove(fmt, s::Symbol)
+    return Expr(fmt.head, filter(!isequal(s), fmt.args)...)
+end
+
+function parse_fmt(fmt)
+    if fmt.head === :string
+        return (fmt, fmt_remove(fmt, :party))
+    else
+        fmts = fmt.args
+        return (fmts[1], fmts[2])
+    end
+end
+
 function stringfdef(name, fmt)
     fieldnames = [f for f in fmt.args if f isa Symbol]
 
@@ -295,7 +308,7 @@ party.
 
 If one of the fields is named conj a Base.conj method is also generated.
 """
-macro operator(ctor::Expr, fmt_party, fmt_noparty, order=nothing)
+macro operator(ctor::Expr, fmt, order=nothing)
     name = ctor.args[1]
     fields = ctor.args[2:end]
     lcname = Symbol(lowercase(string(name)))
@@ -316,6 +329,7 @@ macro operator(ctor::Expr, fmt_party, fmt_noparty, order=nothing)
     xfields = :($(instance_fields(:x, order)...),)
     yfields = :($(instance_fields(:y, order)...),)
 
+    (fmt_party, fmt_noparty) = parse_fmt(fmt)
     strf_party = stringfdef(name, fmt_party)
     strf_noparty = stringfdef(name, fmt_noparty)
 
@@ -337,7 +351,7 @@ end
 
 
 
-@operator Dichotomic(input::Integer) "$party$input" "/$input"
+@operator Dichotomic(input::Integer) ("$party$input", "/$input")
 
 function Base.:*(x::Dichotomic, y::Dichotomic)
     return (x.input == y.input) ? (1, []) : (1, [x, y])
@@ -366,7 +380,6 @@ end
 
 @operator(Fourier(input::Integer, power::Integer, d::Integer),
           "$party$input^$power",
-          "$input^$power",
           (d, input, power))
 
 function Base.:*(x::Fourier, y::Fourier)
@@ -404,8 +417,7 @@ end
 
 
 @operator(Projector(output::Integer, input::Integer),
-          "P$party$output|$input",
-          "P$output|$input")
+          "P$party$output|$input")
 
 function Base.:*(p::Projector, q::Projector)
     if p.input == q.input
@@ -466,8 +478,7 @@ end
 
 
 @operator(KetBra(outputl::Integer, outputr::Integer, input::Integer),
-          "|$outputl><$outputr|$input$party",
-          "|$outputl><$outputr|$input")
+          "|$outputl><$outputr|$input$party")
 
 function Base.:*(p::Projector, k::KetBra)
     if p.input == k.input
@@ -541,9 +552,7 @@ end
 
 
 
-@operator(Unitary(index::Integer, conj::Bool),
-          "U$party$conj$index",
-          "U$conj$index")
+@operator Unitary(index::Integer, conj::Bool) "U$party$conj$index"
 
 function Base.:*(u::Unitary, v::Unitary)
     if (u.index != v.index) || (u.conj == v.conj)
@@ -559,9 +568,7 @@ end
 
 
 
-@operator(Zbff(index::Integer, conj::Bool),
-          "Z$party$conj$index",
-          "Z$conj$index")
+@operator Zbff(index::Integer, conj::Bool) "Z$party$conj$index"
 
 function zbff(party, index::IndexRange, conj=false)
     return [zbff(party, i, conj) for i in index]
