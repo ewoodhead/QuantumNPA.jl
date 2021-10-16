@@ -431,10 +431,6 @@ function Base.:*(p::Projector, q::Projector)
     end
 end
 
-function projector(party, output::Integer, input::Integer)
-    return Monomial(party, Projector(output, input))
-end
-
 function projector(party, output::IndexRange, input::Integer;
                    full::Bool=false)
     if full
