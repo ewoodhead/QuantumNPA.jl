@@ -242,13 +242,7 @@ getfieldnames(fields) = map(argname, fields)
 argname(arg::Symbol) = arg
 argname(arg::Expr) = arg.args[1]
 
-function conjfalse(field)
-    if argname(field) === :conj
-        return Expr(:kw, field, false)
-    else
-        return field
-    end
-end
+
 
 instance_fields(instance, names) = [:($instance.$f) for f in names]
 
@@ -292,6 +286,55 @@ function stringfdef(name, fmt)
              end)
 end
 
+function string_fdefs(name, fmt)
+    (fmt_party, fmt_noparty) = parse_fmt(fmt)
+    return (stringfdef(name, fmt_party), stringfdef(name, fmt_noparty))
+end
+
+
+
+function conjfalse(field)
+    return ((argname(field) === :conj) ? Expr(:kw, field, false) : field)
+end
+
+function conj_def(name, fieldnames)
+    if :conj in fieldnames
+        cxfields = replace(instance_fields(:x, fieldnames),
+                           :(x.conj) => :(!x.conj))
+        conjf = :( Base.conj(x::$name) = $name($(cxfields...)) )
+    else
+        conjf = nothing
+    end
+
+    return conjf
+end
+
+
+
+parse_ctoropt(s::Bool) = (s, s)
+parse_ctoropt(x::Expr) = x.args
+
+function constructor_defs(make_constructors, name, fields, fieldnames)
+    lcname = Symbol(lowercase(string(name)))
+    (mk_ctor, mk_crange) = parse_ctoropt(make_constructors)
+
+    cargs = map(conjfalse, fields)
+
+    if mk_ctor
+        mctor = :(function $(esc(lcname))(party, $(cargs...))
+                      return Monomial(party, $name($(fieldnames...)))
+                  end)
+    else
+        mctor = nothing
+    end
+
+    mcrange = nothing
+
+    return (mctor, mcrange)
+end
+
+
+
 """
 Define a new type of operator with a given name (e.g., Projector), fields,
 and format string. In addition to generating the struct defintion this also
@@ -308,32 +351,26 @@ party.
 
 If one of the fields is named conj a Base.conj method is also generated.
 """
-macro operator(ctor::Expr, fmt, order=nothing)
+macro operator(ctor::Expr, fmt, make_constructors=true, order=nothing)
     name = ctor.args[1]
     fields = ctor.args[2:end]
-    lcname = Symbol(lowercase(string(name)))
 
     fieldnames = getfieldnames(fields)
-
-    if :conj in fieldnames
-        cxfields = replace(instance_fields(:x, fieldnames),
-                           :(x.conj) => :(!x.conj))
-        conjf = :( Base.conj(x::$name) = $name($(cxfields...)) )
-        cargs = map(conjfalse, fields)
-    else
-        conjf = nothing
-        cargs = fields
-    end
 
     order = (isnothing(order) ? reverse(fieldnames) : getfields(order))
     xfields = :($(instance_fields(:x, order)...),)
     yfields = :($(instance_fields(:y, order)...),)
 
-    (fmt_party, fmt_noparty) = parse_fmt(fmt)
-    strf_party = stringfdef(name, fmt_party)
-    strf_noparty = stringfdef(name, fmt_noparty)
+    (strf_party, strf_noparty) = string_fdefs(name, fmt)
 
-    methods = filter(!isnothing, (strf_party, strf_noparty, conjf))
+    conjf = conj_def(name, fieldnames)
+    (mctor, mcrange) = constructor_defs(make_constructors,
+                                        name,
+                                        fields,
+                                        fieldnames)
+
+    methods = (strf_party, strf_noparty, conjf, mctor, mcrange)
+    methods = filter(!isnothing, methods)
 
     return quote
         struct $name <: Operator
@@ -343,9 +380,6 @@ macro operator(ctor::Expr, fmt, order=nothing)
         Base.:(==)(x::$name, y::$name) = ($xfields == $yfields)
         Base.isless(x::$name, y::$name) = ($xfields < $yfields)
         $(methods...)
-        function $(esc(lcname))(party, $(cargs...))
-            return Monomial(party, $name($(fieldnames...)))
-        end
     end
 end
 
@@ -380,6 +414,7 @@ end
 
 @operator(Fourier(input::Integer, power::Integer, d::Integer),
           "$party$input^$power",
+          false,
           (d, input, power))
 
 function Base.:*(x::Fourier, y::Fourier)
@@ -417,7 +452,8 @@ end
 
 
 @operator(Projector(output::Integer, input::Integer),
-          "P$party$output|$input")
+          "P$party$output|$input",
+          (true, false))
 
 function Base.:*(p::Projector, q::Projector)
     if p.input == q.input
@@ -474,7 +510,8 @@ end
 
 
 @operator(KetBra(outputl::Integer, outputr::Integer, input::Integer),
-          "|$outputl><$outputr|$input$party")
+          "|$outputl><$outputr|$input$party",
+          (false, true))
 
 function Base.:*(p::Projector, k::KetBra)
     if p.input == k.input
@@ -936,6 +973,18 @@ function Base.:^(x::Union{Monomial,Polynomial}, p::Integer)
 
     return result
 end
+
+
+
+comm(x::Number, y::Number) = 0
+comm(x::Number, y::Monomial) = 0
+comm(x::Monomial, y::Number) = 0
+comm(x, y) = x*y - y*x
+
+acomm(x::Number, y::Number) = 2*rmul(x, y)
+acomm(x::Number, y::Monomial) = Polynomial(2*x, y)
+acomm(x::Monomial, y::Number) = Polynomail(2*y, x)
+acomm(x, y) = x*y + y*x
 
 
 
