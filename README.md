@@ -173,11 +173,11 @@ dichotomic variables:
 The above macro invocation does essentially the same as running the
 following:
 ```julia
-A1 = Main.dichotomic(1, 1)
-A2 = Main.dichotomic(1, 2)
-B1 = Main.dichotomic(2, 1)
-B2 = Main.dichotomic(2, 2)
-C = Main.dichotomic(:C, 1:3)
+A1 = dichotomic(1, 1)
+A2 = dichotomic(1, 2)
+B1 = dichotomic(2, 1)
+B2 = dichotomic(2, 2)
+C = dichotomic(3, 1:3)
 ```
 
 There are no special relations (at least, at the moment) between the
