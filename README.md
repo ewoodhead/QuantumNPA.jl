@@ -10,6 +10,8 @@ Use `bff.jl` like this:
 ```julia
 julia> using Base.Iterators
 
+julia> using Combinatorics
+
 julia> include("bff.jl")
 ```
 
@@ -162,7 +164,23 @@ julia> julia> zbff(1, 1:3)
  ZA3
 ```
 
-There are no special relations (at least, at the moment) between these
+I am working on writing macros to automatically create variables using
+"standard" names. At the moment you can do, e.g., this to create some
+dichotomic variables:
+```julia
+@dichotomic A1 A2 B1 B2 C[1:3]
+```
+The above macro invocation does essentially the same as running the
+following:
+```julia
+A1 = Main.dichotomic(1, 1)
+A2 = Main.dichotomic(1, 2)
+B1 = Main.dichotomic(2, 1)
+B2 = Main.dichotomic(2, 2)
+C = Main.dichotomic(:C, 1:3)
+```
+
+There are no special relations (at least, at the moment) between the
 different types of operators, so you shouldn't, for example, mix projectors
 and dichotomic operators unless you consider them to be unrelated to each
 other:

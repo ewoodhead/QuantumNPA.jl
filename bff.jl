@@ -1,7 +1,8 @@
 #using Base.Iterators
-#  flatten, zip
+#  flatten, zip (filter?)
 
-
+#using Combinatorics
+#  powerset
 
 RNum = Union{Integer,Rational}
 
@@ -172,6 +173,8 @@ function Base.show(io::IO, m::Monomial)
     end
 end
 
+degree(x::Number) = !iszero(x) ? 0 : -Inf
+
 function degree(m::Monomial)
     result = 0
 
@@ -235,6 +238,8 @@ Base.zero(m::Monomial) = 0
 
 
 IndexRange = Union{UnitRange{<:Integer},Array{<:Integer}}
+
+
 
 getfields(expr) = (expr.head == :tuple) ? expr.args : [expr]
 getfieldnames(fields) = map(argname, fields)
@@ -314,11 +319,53 @@ end
 parse_ctoropt(s::Bool) = (s, s)
 parse_ctoropt(x::Expr) = x.args
 
+function int_args(fields)
+    return filter(fields) do f
+        !isa(f, Symbol) && (f.args[2] === :Integer)
+    end
+end
+
+function replace_seq(collection, replacements)
+    collection = copy(collection)
+
+    for r in replacements
+        replace!(collection, r)
+    end
+
+    return collection
+end
+
+chtype(arg::Expr, type::Symbol) = Expr(arg.head, arg.args[1], type)
+chtype(args::Array{Expr,1}, type::Symbol) = [chtype(a, type) for a in args]
+
+function chtypes(fields, args::Array{Expr,1}, type::Symbol)
+    return replace_seq(fields, (a => chtype(a, type) for a in args))
+end
+
+function ctor_ranges(lcname, fields)
+    ifields = int_args(fields)
+    to_sub = drop(powerset(ifields), 1)
+
+    function mkrange(sub)
+        fnames = getfieldnames(sub)
+        nfields = chtypes(fields, sub, :IndexRange)
+        lfcall = :($lcname(party, $(fnames...)))
+        lassgms = [:($a = $a) for a in fnames]
+        comp = Expr(:comprehension, Expr(:generator, lfcall, lassgms...))
+        
+        return :(function $lcname(party, $(nfields...))
+                     return $comp
+                 end)
+    end
+
+    return map(mkrange, to_sub)
+end
+
 function constructor_defs(make_constructors, name, fields, fieldnames)
     lcname = Symbol(lowercase(string(name)))
     (mk_ctor, mk_crange) = parse_ctoropt(make_constructors)
 
-    cargs = map(conjfalse, fields)
+    cargs = Any[conjfalse(f) for f in fields]
 
     if mk_ctor
         mctor = :(function $(esc(lcname))(party, $(cargs...))
@@ -328,7 +375,11 @@ function constructor_defs(make_constructors, name, fields, fieldnames)
         mctor = nothing
     end
 
-    mcrange = nothing
+    if mk_crange
+        mcrange = ctor_ranges(esc(lcname), cargs)
+    else
+        mcrange = ()
+    end
 
     return (mctor, mcrange)
 end
@@ -369,7 +420,7 @@ macro operator(ctor::Expr, fmt, make_constructors=true, order=nothing)
                                         fields,
                                         fieldnames)
 
-    methods = (strf_party, strf_noparty, conjf, mctor, mcrange)
+    methods = [strf_party, strf_noparty, conjf, mctor, mcrange...]
     methods = filter(!isnothing, methods)
 
     return quote
@@ -390,8 +441,6 @@ end
 function Base.:*(x::Dichotomic, y::Dichotomic)
     return (x.input == y.input) ? (1, []) : (1, [x, y])
 end
-
-dichotomic(party, input::IndexRange) = [dichotomic(party, z) for z in input]
 
 function parse_dichotomic(expr)
     if expr isa Symbol
@@ -568,21 +617,6 @@ function ketbra(party, outputl::Integer, outputr::Integer, input::Integer)
     return Monomial(party, op)
 end
 
-function ketbra(party, outputl::IndexRange, outputr::IndexRange,
-                input::Integer)
-    return [ketbra(party, ol, or, input) for ol in outputl, or in outputr]
-end
-
-function ketbra(party, outputl::Integer, outputr::Integer, input::IndexRange)
-    return [ketbra(party, outputl, outputr, i) for i in input]
-end
-
-function ketbra(party, outputl::IndexRange, outputr::IndexRange,
-                input::IndexRange)
-    return [ketbra(party, ol, or, i)
-            for ol in outputl, or in outputr, i in input]
-end
-
 
 
 @operator Unitary(index::Integer, conj::Bool) "U$party$conj$index"
@@ -595,17 +629,9 @@ function Base.:*(u::Unitary, v::Unitary)
     end
 end
 
-function unitary(party, index::IndexRange, conj=false)
-    return [unitary(party, i, conj) for i in index]
-end
-
 
 
 @operator Zbff(index::Integer, conj::Bool) "Z$party$conj$index"
-
-function zbff(party, index::IndexRange, conj=false)
-    return [zbff(party, i, conj) for i in index]
-end
 
 
 
@@ -718,6 +744,20 @@ function Base.show(io::IO, p::Polynomial)
             c2s = coeff2string
         end
     end
+end
+
+"""
+Degree of a polynomial.
+
+degree(0) returns negative infinity. With this definition the following rules
+hold even if one or both of P or Q are zero:
+
+  degree(P + Q) == max(degree(P), degree(Q))
+  degree(P - Q) <= max(degree(P), degree(Q))
+  degree(P * Q) == degree(P) + degree(Q)
+"""
+function degree(p::Polynomial)
+    return !iszero(p) ? maximum(degree.(monomials(p))) : -Inf
 end
 
 
