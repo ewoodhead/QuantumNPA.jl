@@ -172,7 +172,7 @@ function Base.show(io::IO, m::Monomial)
     end
 end
 
-function order(m::Monomial)
+function degree(m::Monomial)
     result = 0
 
     for (_, ops) in m.word
@@ -191,7 +191,7 @@ Base.:(==)(x::Monomial, y::Number) = (y == 1) && isempty(x)
 Base.:(==)(x::Monomial, y::Monomial) = (x.word == y.word)
 
 function Base.isless(x::Monomial, y::Monomial)
-    ox, oy = order(x), order(y)
+    ox, oy = degree(x), degree(y)
 
     if ox != oy
         return ox < oy
