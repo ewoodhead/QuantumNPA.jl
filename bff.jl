@@ -762,6 +762,8 @@ function degree(p::Polynomial)
     return !iszero(p) ? maximum(degree.(monomials(p))) : -Inf
 end
 
+degree_less(n::Integer) = (x -> (degree(x) < n))
+
 
 
 "Add y to polynomial x, modifying x."
@@ -1089,6 +1091,12 @@ monomials(p::Polynomial) = keys(p.terms)
 
 monomials(m::Monomial) = (m,)
 
+max_monomial(x) = maximum(all_monomials(x))
+
+
+
+coefficients(p::Polynomial) = values(p.terms)
+
 
 
 function add_monomials!(table::Dict{Integer,Set{Monomial}},
@@ -1187,10 +1195,25 @@ function substitute!(p::Polynomial, x::Polynomial, m::Monomial)
     return p
 end
 
-"Remove lexicographically highest monomial in x from p assuming x = 0"
-function substitute!(p::Polynomial, x::Polynomial)
-    
+function substitute!(ps::Set, x, m)
+    delete!(ps, x)
+
+    for p in ps
+        delete!(ps, p)
+        p = substitute!(p, x, m)
+
+        if !iszero(p)
+            push!(ps, p)
+        end
+    end
+
+    return ps
 end
+
+#"Remove lexicographically highest monomial in x from p assuming x = 0"
+#function substitute!(p::Polynomial, x::Polynomial)
+#    
+#end
 
 substitute(p::Polynomial, x, m) = substitute!(copy(p), x, m)
 
@@ -1210,4 +1233,57 @@ function cglmp(d::Integer)
                      - p(1,1,-k-1) - p(2,1,k) - p(2,2,-k-1) - p(1,2,k+1),
                      (1 - 2*k//d1))
                 for k in 0:(div(d,2)-1))
+end
+
+
+
+function canonical(p::Polynomial)
+    f = gcd(Rational[x for x in coefficients(p) if x isa RNum])
+
+    if !iszero(p) && (p[max_monomial(p)] > 0)
+        f = -f
+    end
+
+    return inv(f)*p
+end
+
+function max_constraint(constraints)
+    (c0, rest) = Iterators.peel(constraints)
+    m0 = max_monomial(c0)
+
+    for c in constraints
+        m = max_monomial(c)
+
+        if m > m0
+            m0 = m
+            c0 = c
+        end
+    end
+
+    return (m0, c0)
+end
+
+function reduce_constraints(constraints; verbose=false)
+    constraints = Set{Polynomial}(copy(Polynomial(c))
+                                  for c in constraints if !iszero(c))
+    result = Dict{Monomial,Polynomial}()
+
+    while length(constraints) > 0
+        (m, p) = max_constraint(constraints)
+
+        if verbose
+            print("$(length(constraints)) constraints left. ")
+            println("Eliminating: $m.")
+        end
+
+        substitute!(constraints, p, m)
+
+        for v in values(result)
+            substitute!(v, p, m)
+        end
+
+        result[m] = p
+    end
+
+    return Dict((k, canonical(v)) for (k, v) in result)
 end
