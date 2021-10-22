@@ -658,6 +658,8 @@ end
 Base.iterate(x::Polynomial) = iterate(x.terms)
 Base.iterate(x::Polynomial, state) = iterate(x.terms, state)
 
+Base.hash(p::Polynomial, h::UInt) = hash(p.terms, h)
+
 Base.getindex(x::Polynomial, y::Monomial) = get(x.terms, y, 0)
 
 function Base.setindex!(x::Polynomial, y::Number, z::Monomial)
