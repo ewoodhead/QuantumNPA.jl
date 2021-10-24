@@ -8,7 +8,7 @@ RNum = Union{Integer,Rational}
 
 "Convert x to integer if it is rational with denominator 1."
 demote(x::Number) = x
-demote(x::RNum) = ((denominator(x) == 1) ? numerator(x) : x)
+demote(x::Rational) = ((denominator(x) == 1) ? numerator(x) : x)
 
 rmul(x::Number, y::Number) = x * y
 rmul(x::Integer, y::Rational) = demote(x*y)
@@ -1195,7 +1195,15 @@ function substitute!(p::Polynomial, x::Polynomial, m::Monomial)
     return p
 end
 
-function substitute!(ps::Set, x, m)
+function substitute!(ps, x::Polynomial, m::Monomial)
+    for p in ps
+        substitute!(p, x, m)
+    end
+
+    return ps
+end
+
+function substitute!(ps::Set, x::Polynomial, m::Monomial)
     delete!(ps, x)
 
     for p in ps
@@ -1210,13 +1218,13 @@ function substitute!(ps::Set, x, m)
     return ps
 end
 
-#"Remove lexicographically highest monomial in x from p assuming x = 0"
-#function substitute!(p::Polynomial, x::Polynomial)
-#    
-#end
+"Remove lexicographically highest monomial in x from p assuming <x> = 0."
+function substitute!(p::Polynomial, x::Polynomial)
+    return !iszero(x) ? substitute!(p, x, max_monomial(x)) : p
+end
 
 substitute(p::Polynomial, x, m) = substitute!(copy(p), x, m)
-
+substitute(p::Polynomial, x) = substitute!(copy(p), x)
 
 
 function cglmp(d::Integer)
@@ -1236,12 +1244,27 @@ function cglmp(d::Integer)
 end
 
 
+canonical(x::Number) = x
+canonical(x::RNum) = 1
+canonical(m::Monomial) = m
 
+
+function canonical!(p::Polynomial)
+    f = gcd(Rational[x for x in coefficients(p) if x isa RNum])
+
+    if iszero(f)
+        return p
+    end
+
+    return mul!(p, inv(f))
+end
+
+"Return polynomial scaled to make all its rational coefficients integers."
 function canonical(p::Polynomial)
     f = gcd(Rational[x for x in coefficients(p) if x isa RNum])
 
-    if !iszero(p) && (p[max_monomial(p)] > 0)
-        f = -f
+    if iszero(f)
+        return p
     end
 
     return inv(f)*p
@@ -1263,10 +1286,11 @@ function max_constraint(constraints)
     return (m0, c0)
 end
 
+"Return a minimal list of constraints equivalent to the input ones."
 function reduce_constraints(constraints; verbose=false)
     constraints = Set{Polynomial}(copy(Polynomial(c))
                                   for c in constraints if !iszero(c))
-    result = Dict{Monomial,Polynomial}()
+    result = Array{Polynomial,1}()
 
     while length(constraints) > 0
         (m, p) = max_constraint(constraints)
@@ -1277,13 +1301,24 @@ function reduce_constraints(constraints; verbose=false)
         end
 
         substitute!(constraints, p, m)
-
-        for v in values(result)
-            substitute!(v, p, m)
-        end
-
-        result[m] = p
+        substitute!(result, p, m)
+        push!(result, p)
     end
 
-    return Dict((k, canonical(v)) for (k, v) in result)
+    return map(canonical, result)
 end
+
+function cfmat(constraints)
+    ms = sort(monomials(constraints))
+    return [convert(Rational, c[m]) for c in constraints, m in ms]
+end
+
+# These expressions should give the same (or equivalent) results:
+#
+#   cfmat(reduce_constraints(constraints))
+#
+# and
+#
+#   -reverse(rref(reverse(cfmat(constraints), dims=2)), dims=2)
+#
+# (using rref() from package RowEchelon)
