@@ -1319,6 +1319,6 @@ end
 #
 # and
 #
-#   -reverse(rref(reverse(cfmat(constraints), dims=2)), dims=2)
+#   reverse(rref(reverse(cfmat(constraints), dims=2)), dims=2)
 #
 # (using rref() from package RowEchelon)
