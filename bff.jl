@@ -1388,3 +1388,54 @@ end
 function extend!(space::Linspace, p::Polynomial)
     return extend!!(space, copy(p))
 end
+
+
+
+# NPA
+
+function npa_moments(monomials)
+    moments = Dict{Monomial}{SparseMatrixCSC}()
+
+    N = length(monomials)
+
+    ops = collect(enumerate(monomials))
+
+    for (i, x) in ops
+        for (j, y) in ops[i:end]
+            m = conj(x)*y
+            m = min(m, conj(m))
+
+            if haskey(moments, m)
+                moments[m][i, j] = 1
+
+                if i != j
+                    moments[m][j, i] = 1
+                end
+            else
+                if i == j
+                    moments[m] = sparse([i], [i], [1], N, N)
+                else
+                    moments[m] = sparse([i, j], [j, i], [1, 1], N, N)
+                end
+            end
+        end
+    end
+
+    return moments
+end
+
+
+
+function npa_max(expr, moments, solver=SCS.Optimizer)
+    vars = Dict(m => ((m == Id) ? 1 : Variable())
+                for m in keys(moments))
+
+    objective = sum(c*vars[m] for (m, c) in expr)
+
+    gamma = sum(g*vars[m] for (m, g) in moments)
+
+    problem = maximize(objective, [(gamma in :SDP)])
+    solve!(problem, solver, silent_solver=true)
+
+    return evaluate(objective)
+end
