@@ -1,8 +1,13 @@
-#using Base.Iterators
+using Base.Iterators
 #  flatten, zip (filter?)
 
-#using Combinatorics
+using Combinatorics
 #  powerset
+
+using Convex
+using SCS
+
+
 
 RNum = Union{Integer,Rational}
 
@@ -1244,13 +1249,29 @@ function cglmp(d::Integer)
 end
 
 
-canonical(x::Number) = x
+canonical(x::Number) = abs(x)
 canonical(x::RNum) = 1
 canonical(m::Monomial) = m
 
+function canonical_factor(p::Polynomial)
+    cfs = Rational[x for (_, x) in sort(p)
+                       if (x isa RNum) && (!iszero(x))]
+
+    if isempty(cfs)
+        return 0
+    end
+
+    f = gcd(cfs)
+
+    if !iszero(f) && (cfs[1] < 0)
+        f = -f
+    end
+
+    return f
+end
 
 function canonical!(p::Polynomial)
-    f = gcd(Rational[x for x in coefficients(p) if x isa RNum])
+    f = canonical_factor(p)
 
     if iszero(f)
         return p
@@ -1261,13 +1282,44 @@ end
 
 "Return polynomial scaled to make all its rational coefficients integers."
 function canonical(p::Polynomial)
-    f = gcd(Rational[x for x in coefficients(p) if x isa RNum])
+    f = canonical_factor(p)
 
     if iszero(f)
         return p
     end
 
     return inv(f)*p
+end
+
+function canonical_factor(p::Polynomial, m::Monomial)
+    cfs = Rational[x for x in coefficients(p)
+                       if (x isa RNum) && (!iszero(x))]
+
+    if isempty(cfs)
+        return 0
+    end
+
+    f = gcd(cfs)
+
+    if !iszero(f) && (p[m] < 0)
+        f = -f
+    end
+
+    return f
+end
+
+"""
+Scale polynomial to make all its rational coefficients integers. Also make
+p[m] positive if it is nonzero.
+"""
+function canonical!(p::Polynomial, m::Monomial)
+    f = canonical_factor(p, m)
+
+    if iszero(f)
+        return p
+    end
+
+    return mul!(p, inv(f))
 end
 
 function max_constraint(constraints)
@@ -1286,39 +1338,53 @@ function max_constraint(constraints)
     return (m0, c0)
 end
 
-"Return a minimal list of constraints equivalent to the input ones."
-function reduce_constraints(constraints; verbose=false)
-    constraints = Set{Polynomial}(copy(Polynomial(c))
-                                  for c in constraints if !iszero(c))
-    result = Array{Polynomial,1}()
+Linspace = Dict{Monomial,Polynomial}
 
-    while length(constraints) > 0
-        (m, p) = max_constraint(constraints)
-
-        if verbose
-            print("$(length(constraints)) constraints left. ")
-            println("Eliminating: $m.")
-        end
-
-        substitute!(constraints, p, m)
-        substitute!(result, p, m)
-        push!(result, p)
+"""
+Add polynomial to space if it is not a linear combination of the polynomials
+already in the space, assuming space is already in a certain reduced form.
+space is a table of polynomials together with the lexicographically maximal
+monomial in each polynomial.
+Reduced form means that the highest monomial m in each polynomial space[m] in
+space appears in no other polynomial (i.e., has been eliminated) in space.
+Specifically,
+  space[m][m] is nonzero,
+and
+  space[m][m1] = 0
+for m, m1 in keys(space).
+"""
+function extend!!(space::Linspace, p::Polynomial)
+    if iszero(p)
+        return space
     end
 
-    return map(canonical, result)
+    # Remove highest monomials already in space from p.
+    # If p becomes 0 this means p is not linearly independent of space and
+    # we can stop.
+
+    for (m, q) in space
+        if iszero(substitute!(p, q, m))
+            return space
+        end
+    end
+
+    # Now remove highest remaining monomial m0 of p from polynomials in
+    # space.
+
+    m0 = max_monomial(p)
+    p = canonical!(p, m0)
+
+    for (m, q) in space
+        if !iszero(q[m0])
+            canonical!(substitute!(q, p, m0), m)
+        end
+    end
+
+    space[m0] = p
+
+    return space
 end
 
-function cfmat(constraints)
-    ms = sort(monomials(constraints))
-    return [convert(Rational, c[m]) for c in constraints, m in ms]
+function extend!(space::Linspace, p::Polynomial)
+    return extend!!(space, copy(p))
 end
-
-# These expressions should give the same (or equivalent) results:
-#
-#   cfmat(reduce_constraints(constraints))
-#
-# and
-#
-#   reverse(rref(reverse(cfmat(constraints), dims=2)), dims=2)
-#
-# (using rref() from package RowEchelon)
