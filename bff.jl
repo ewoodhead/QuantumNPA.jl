@@ -7,6 +7,8 @@ using Combinatorics
 using Convex
 using SCS
 
+using SparseArrays
+
 
 
 RNum = Union{Integer,Rational}
@@ -659,6 +661,9 @@ Polynomial(x::Polynomial) = x
 function Polynomial(x::Base.Generator)
     return Polynomial(Dict((m, demote(c)) for (m, c) in x))
 end
+
+new_polynomial(x) = Polynomial(x)
+new_polynomial(p::Polynomial) = copy(p)
 
 Base.iterate(x::Polynomial) = iterate(x.terms)
 Base.iterate(x::Polynomial, state) = iterate(x.terms, state)
@@ -1391,10 +1396,43 @@ end
 
 
 
+function linspace(operators)
+    space = Linspace()
+
+    for o in operators
+        extend!(space, Polynomial(o))
+    end
+
+    return space
+end
+
+
+
+function reduce_expr!(expr, space::Linspace)
+    return reduce_expr!(Polynomial(expr), space)
+end
+
+function reduce_expr!(expr::Polynomial, space::Linspace)
+    for (m, p) in space
+        substitute!(expr, p, m)
+    end
+
+    return expr
+end
+
+
+function reduce_expr(expr, space::Linspace)
+    return reduce_expr!(new_polynomial(expr), space)
+end
+
+
+
 # NPA
 
+Moments = Dict{Monomial}{SparseMatrixCSC}
+
 function npa_moments(monomials)
-    moments = Dict{Monomial}{SparseMatrixCSC}()
+    moments = Moments()
 
     N = length(monomials)
 
@@ -1425,17 +1463,86 @@ function npa_moments(monomials)
 end
 
 
+function ops_at_level(n::Integer, source)
+    ops = operators(source)
+    return ops_at_level(n, ops)
+end
 
-function npa_max(expr, moments, solver=SCS.Optimizer)
+function ops_at_level(n::Integer, ops::Set{Monomial})
+    @assert n >= 0
+
+    ops = copy(ops)
+    push!(ops, Id)
+    result = Set([Id])
+
+    while n > 0
+        result = filter(!iszero, Set(x*y for x in result for y in ops))
+        n -= 1
+    end
+
+    return sort(result)
+end
+
+
+
+function npa_max(expr,
+                 constraints,
+                 moments::Moments;
+                 solver=SCS.Optimizer)
+    # Reduce constraints to canonical form
+
+    if !(constraints isa Linspace)
+        constraints = linspace(constraints)
+    else
+        constraints = deepcopy(constraints)
+    end
+
+    if haskey(constraints, Id)
+        @error "Contradiction Id = 0 in constraints."
+    end
+
+    # Reduce the objective expression, using constraints to eliminate
+    # monomials
+    expr = reduce_expr(expr, constraints)
+
+    moments = deepcopy(moments)
+
+    for (m0, constraint) in constraints
+        G = moments[m0]
+        delete!(moments, m0)
+
+        q = constraint[m0]
+        constraint[m0] = 0
+
+        for (m, c) in constraint
+            moments[m] -= rdiv(c, q)*G
+        end
+    end
+
     vars = Dict(m => ((m == Id) ? 1 : Variable())
                 for m in keys(moments))
 
     objective = sum(c*vars[m] for (m, c) in expr)
-
     gamma = sum(g*vars[m] for (m, g) in moments)
 
     problem = maximize(objective, [(gamma in :SDP)])
     solve!(problem, solver, silent_solver=true)
 
     return evaluate(objective)
+end
+
+function npa_max(expr,
+                 constraints,
+                 level;
+                 solver=SCS.Optimizer)
+    monomials = ops_at_level(level, [expr, constraints])
+
+    return npa_max(expr,
+                   constraints,
+                   npa_moments(monomials),
+                   solver=solver)
+end
+
+function npa_max(expr, lvl_or_moments; solver=SCS.Optimizer)
+    return npa_max(expr, [], lvl_or_moments, solver=solver)
 end

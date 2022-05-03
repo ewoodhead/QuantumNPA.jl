@@ -1,19 +1,45 @@
 # bff-npa
 
-Code to do NPA needed to use the Brown-Fawzi-Fawzi method.
+Code to do NPA in Julia. It is still in development and not provided as a
+module yet.
+
+Prerequisits:
+```julia
+julia> using Pkg
+julia> Pkg.add(["Combinatorics", "Convex", "SCS"])
+```
+
+Use `bff.jl` like this:
+```julia
+julia> include("bff.jl");
+```
 
 At the moment: `bff.jl` contains code in development, `ops.jl` is the older
 code that only does NPA with projectors and shouldn't be used (except to
 copy/adapt some of the code in it and move to `bff.jl`).
 
-Use `bff.jl` like this:
+
+
+## Working examples
+
+Maximise CHSH at level 2 of the hierarchy:
 ```julia
-julia> using Base.Iterators
+julia> @dichotomic A1 A2 B1 B2
+B2
 
-julia> using Combinatorics
+julia> S = A1*(B1 + B2) + A2*(B1 - B2)
+A1 B1 + A1 B2 + A2 B1 - A2 B2
 
-julia> include("bff.jl")
+julia> npa_max(S, 2)
+2.828427124718305
 ```
+
+Maximise `<A1>` subject to `<A1*(B1 + B2)> = 1.4` and `<A2*(B1 - B2)> = 1.4`:
+```julia
+julia> npa_max(A1, [A1*(B1 + B2) - 1.4, A2*(B1 - B2) - 1.4], 2)
+0.19802950752624165
+```
+
 
 
 ## Basic features
