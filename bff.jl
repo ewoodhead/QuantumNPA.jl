@@ -113,7 +113,7 @@ party_str(s::Symbol) = string(s)
 pos(c::Char) = findfirst(isequal(c), alphabet)
 
 "Return integer representation of a party, e.g., `party_num(\"C\") = 3`."
-function party_num(s::String)
+function party_num(s::AbstractString)
     base = length(alphabet)
     party = 0
 
@@ -135,10 +135,6 @@ function split_party(s::String)
 end
 
 split_party(s::Symbol) = split_party(string(s))
-
-function range_expr(expr)
-    
-end
 
 
 
@@ -1481,6 +1477,42 @@ function ops_at_level(n::Integer, ops::Set{Monomial})
     end
 
     return sort(result)
+end
+
+function parse_level_contrib(str)
+    if all(isdigit, str)
+        return parse(Int, str)
+    end
+
+    contribs = Dict{Int,Int}()
+
+    for term in split(str)
+        if '^' in term
+            (term, p_str) = split(term, '^')
+            power = parse(Int, p_str)
+        else
+            power = 1
+        end
+
+        party = party_num(term)
+
+        if haskey(contribs, party)
+            contribs[party] += power
+        else
+            contribs[party] = power
+        end
+    end
+
+    return contribs
+end
+
+function monomial_products(monomials, power::Int)
+    @assert power > 0
+
+    
+end
+
+function monomials(contribs, ops)
 end
 
 

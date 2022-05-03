@@ -3,15 +3,14 @@
 Code to do NPA in Julia. It is still in development and not provided as a
 module yet.
 
-Prerequisits:
+Prerequisites:
 ```julia
-julia> using Pkg
-julia> Pkg.add(["Combinatorics", "Convex", "SCS"])
+using Pkg; Pkg.add(["Combinatorics", "Convex", "SCS"])
 ```
 
 Use `bff.jl` like this:
 ```julia
-julia> include("bff.jl");
+include("bff.jl");
 ```
 
 At the moment: `bff.jl` contains code in development, `ops.jl` is the older
@@ -24,8 +23,7 @@ copy/adapt some of the code in it and move to `bff.jl`).
 
 Maximise CHSH at level 2 of the hierarchy:
 ```julia
-julia> @dichotomic A1 A2 B1 B2
-B2
+julia> @dichotomic A1 A2 B1 B2;
 
 julia> S = A1*(B1 + B2) + A2*(B1 - B2)
 A1 B1 + A1 B2 + A2 B1 - A2 B2
