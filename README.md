@@ -56,6 +56,31 @@ julia> npa_max(A1, [A1*(B1 + B2) - 1.4, A2*(B1 - B2) - 1.4], 2)
 0.19802950752624165
 ```
 
+The above examples all use dichotomic variables, but projectors are also
+supported. Here we maximise the CH74 form of CHSH:
+```julia
+julia> PA11, PA12 = projector(1,1,1:2);
+
+julia> PB11, PB12 = projector(2,1,1:2);
+
+julia> npa_max(-PA11 - PB11 + PA11*(PB11 + PB12) + PA12*(PB11 - PB12), 1)
+0.20710681094471445
+
+julia> (sqrt(2) - 1)/2
+0.20710678118654757
+```
+
+CGLMP with d=3 at level 1 + A B:
+```julia
+julia> npa_max(cglmp(3), "1 + A B")
+2.914855484110488
+
+julia> 1 + sqrt(11/3)
+2.914854215512676
+```
+This uses a function `cglmp()` already defined in `qnpa.jl` to construct the
+CGLMP operator.
+
 
 
 ## Basic features
