@@ -1,21 +1,21 @@
-# bff-npa
+# QuantumNPA
 
-Code to do NPA in Julia. It is still in development and not provided as a
-module yet.
+Code to do NPA in Julia. It is still in development and not organised as a
+module yet
 
 Prerequisites:
 ```julia
 using Pkg; Pkg.add(["Combinatorics", "Convex", "SCS"])
 ```
 
-Use `bff.jl` like this:
+Use/try out `qnpa.jl` like this:
 ```julia
-include("bff.jl");
+include("qnpa.jl");
 ```
 
-At the moment: `bff.jl` contains code in development, `ops.jl` is the older
+At the moment: `qnpa.jl` contains code in development, `ops.jl` is the older
 code that only does NPA with projectors and shouldn't be used (except to
-copy/adapt some of the code in it and move to `bff.jl`).
+copy/adapt some of the code in it and move to `qnpa.jl`).
 
 
 
@@ -71,7 +71,7 @@ operators that we associate to different parties. At the moment:
 - fourier,
 - projector,
 - unitary,
-- zbff (Brown-Fawzi-Fawzi operators).
+- zbff (operators for Brown-Fawzi-Fawzi method).
 
 The identity is represented by a variable `Id` that is predefined.
 ```julia
@@ -504,20 +504,15 @@ true
 
 julia> A1 < 1*A1
 ERROR: MethodError: no method matching isless(::Monomial, ::Polynomial)
-Closest candidates are:
-  isless(::Missing, ::Any) at missing.jl:87
-  isless(::Monomial, ::Monomial) at /home/erik/projects/bff-npa/bff.jl:347
-  isless(::Any, ::Missing) at missing.jl:88
-Stacktrace:
- [1] <(::Monomial, ::Polynomial) at ./operators.jl:268
- [2] top-level scope at REPL[94]:1
+[...]
 ```
+
 
 
 ## Internal details
 
 The way a list of operators are joined to multiply them is determined at the
-moment by a function `join_ops` near the beginning of the file `bff.jl`. It
+moment by a function `join_ops` near the beginning of the file `qnpa.jl`. It
 is not super general at the moment but is general enough to handle the
 different types of operators already defined.
 
