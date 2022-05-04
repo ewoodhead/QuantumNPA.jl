@@ -7,14 +7,10 @@ Prerequisites:
 using Pkg; Pkg.add(["Combinatorics", "Convex", "SCS"])
 ```
 
-Use/try out `qnpa.jl` like this:
+Then to use/try out:
 ```julia
 include("qnpa.jl");
 ```
-
-At the moment: `qnpa.jl` contains code in development, `ops.jl` is the older
-code that only does NPA with projectors and shouldn't be used (except to
-copy/adapt some of the code in it and move to `qnpa.jl`).
 
 
 
