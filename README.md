@@ -32,7 +32,30 @@ julia> npa_max(S, 2)
 2.828427124718305
 ```
 
-Maximise `<A1>` subject to `<A1*(B1 + B2)> = 1.4` and `<A2*(B1 - B2)> = 1.4`:
+Maximise Svetlichny at level 1 + A B + A C + B C:
+```julia
+julia> @dichotomic A[1:2] B[1:2] C[1:2];
+
+julia> E(x,y,z) = A[x]*B[y]*C[z]
+E (generic function with 1 method)
+
+julia> S = -E(1,1,1) + E(1,1,2) + E(1,2,1) + E(1,2,2) + E(2,1,1) + E(2,1,2) + E(2,2,1) - E(2,2,2)
+-A1 B1 C1 + A1 B1 C2 + A1 B2 C1 + A1 B2 C2 + A2 B1 C1 + A2 B1 C2 + A2 B2 C1 - A2 B2 C2
+
+julia> npa_max(S, "1 + A B + A C + B C")
+5.656854248886011
+```
+(note that the spaces e.g. between A and B are necessary in the string, since
+party labels go from A to Z then AA to ZZ then AAA to ZZZ...)
+
+Maximise a modified CHSH at level 1 + A B + A^2 B:
+```julia
+julia> npa_max(0.3 * A1 + 0.6 * A1*(B1 + B2) + A2*(B1 - B2), "1 + A B + A^2 B")
+2.3584742798682132
+```
+
+Maximise `<A1>` subject to `<A1*(B1 + B2)> = 1.4` and `<A2*(B1 - B2)> = 1.4`,
+assuming the operator variables are already defined:
 ```julia
 julia> npa_max(A1, [A1*(B1 + B2) - 1.4, A2*(B1 - B2) - 1.4], 2)
 0.19802950752624165

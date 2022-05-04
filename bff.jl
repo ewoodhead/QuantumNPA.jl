@@ -877,7 +877,7 @@ Base.:+(x::Polynomial, y::Polynomial) = add!(copy(x), y)
 
 
 
-Base.:-(x::Monomial) = Polynomial(Dict(y => -1))
+Base.:-(x::Monomial) = Polynomial(Dict(x => -1))
 Base.:-(x::Polynomial) = Polynomial((m, -c) for (m, c) in x)
 
 
@@ -1479,22 +1479,42 @@ function ops_at_level(n::Integer, ops::Set{Monomial})
     return sort(result)
 end
 
-function parse_level_contrib(str)
-    if all(isdigit, str)
-        return parse(Int, str)
+function ops_at_level(n::AbstractString, source)
+    ops = operators(source, by_party=true)
+    return ops_at_level(n, ops)
+end
+
+function ops_at_level(n::AbstractString, ops::Dict{Integer,Set{Monomial}})
+    result = Set{Monomial}()
+
+    for term in split(n, '+')
+        ms = make_term(term, ops)
+        result = union!(result, ms)
+    end
+
+    return sort(result)
+end
+
+
+
+function parse_level_term(term)
+    term = strip(term)
+
+    if all(isdigit, term)
+        return parse(Int, term)
     end
 
     contribs = Dict{Int,Int}()
 
-    for term in split(str)
-        if '^' in term
-            (term, p_str) = split(term, '^')
+    for party_str in split(term)
+        if '^' in party_str
+            (party_str, p_str) = split(party_str, '^')
             power = parse(Int, p_str)
         else
             power = 1
         end
 
-        party = party_num(term)
+        party = party_num(party_str)
 
         if haskey(contribs, party)
             contribs[party] += power
@@ -1506,13 +1526,40 @@ function parse_level_contrib(str)
     return contribs
 end
 
+function nonzero_products(s1, s2)
+    return filter(!iszero, Set(x*y for x in s1 for y in s2))
+end
+
 function monomial_products(monomials, power::Int)
     @assert power > 0
 
-    
+    result = Set([Id])
+
+    while power > 0
+        result = nonzero_products(result, monomials)
+        power -= 1
+    end
+
+    return result
 end
 
-function monomials(contribs, ops)
+function make_term(term, ops::Dict{Integer,Set{Monomial}})
+    level = parse_level_term(term)
+
+    if level isa Integer
+        all_ops = union(values(ops)...)
+
+        return ops_at_level(level, all_ops)
+    else
+        result = Set([Id])
+        
+        for (party, power) in level
+            ms = monomial_products(ops[party], power)
+            result = nonzero_products(result, ms)
+        end
+
+        return result
+    end
 end
 
 
