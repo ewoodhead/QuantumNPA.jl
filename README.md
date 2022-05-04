@@ -1,7 +1,6 @@
 # QuantumNPA
 
-Code to do NPA in Julia. It is still in development and not organised as a
-module yet
+Code to do NPA in Julia. In development.
 
 Prerequisites:
 ```julia
