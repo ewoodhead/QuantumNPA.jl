@@ -1437,6 +1437,11 @@ function npa_moments(monomials)
     for (i, x) in ops
         for (j, y) in ops[i:end]
             m = conj(x)*y
+
+            if m == 0
+                continue
+            end
+
             m = min(m, conj(m))
 
             if haskey(moments, m)
