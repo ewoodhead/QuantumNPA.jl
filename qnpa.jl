@@ -1564,10 +1564,11 @@ end
 
 
 
-function npa_max(expr,
+function npa_opt(expr,
                  constraints,
                  moments::Moments;
-                 solver=SCS.Optimizer)
+                 solver=SCS.Optimizer,
+                 goal=:maximise)
     # Reduce constraints to canonical form
 
     if !(constraints isa Linspace)
@@ -1604,24 +1605,49 @@ function npa_max(expr,
     objective = sum(c*vars[m] for (m, c) in expr)
     gamma = sum(g*vars[m] for (m, g) in moments)
 
-    problem = maximize(objective, [(gamma in :SDP)])
+    if goal in (:maximise, :maximize, :max)
+        problem = maximize(objective, [(gamma in :SDP)])
+    elseif goal in (:minimise, :minimize, :min)
+        problem = minimize(objective, [(gamma in :SDP)])
+    end
+
     solve!(problem, solver, silent_solver=true)
 
     return evaluate(objective)
 end
 
-function npa_max(expr,
+function npa_opt(expr,
                  constraints,
                  level;
-                 solver=SCS.Optimizer)
+                 solver=SCS.Optimizer,
+                 goal=:maximise)
     monomials = ops_at_level(level, [expr, constraints])
 
-    return npa_max(expr,
+    return npa_opt(expr,
                    constraints,
                    npa_moments(monomials),
-                   solver=solver)
+                   solver=solver,
+                   goal=goal)
 end
 
-function npa_max(expr, lvl_or_moments; solver=SCS.Optimizer)
-    return npa_max(expr, [], lvl_or_moments, solver=solver)
+
+
+function npa_max(expr, level; solver=SCS.Optimizer)
+    return npa_opt(expr, [], level, solver=SCS.Optimizer, goal=:maximise)
+end
+
+function npa_max(expr, constraints, level; solver=SCS.Optimizer)
+    return npa_opt(expr, contraints, level,
+                   solver=SCS.Optimizer,
+                   goal=:maximise)
+end
+
+function npa_min(expr, level; solver=SCS.Optimizer)
+    return npa_opt(expr, [], level, solver=SCS.Optimizer, goal=:minimise)
+end
+
+function npa_min(expr, constraints, level; solver=SCS.Optimizer)
+    return npa_max(expr, contraints, level,
+                   solver=SCS.Optimizer,
+                   goal=:minimise)
 end
