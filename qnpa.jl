@@ -1642,7 +1642,7 @@ function npa_max(expr, level; solver=SCS.Optimizer)
 end
 
 function npa_max(expr, constraints, level; solver=SCS.Optimizer)
-    return npa_opt(expr, contraints, level,
+    return npa_opt(expr, constraints, level,
                    solver=SCS.Optimizer,
                    goal=:maximise)
 end
@@ -1652,7 +1652,7 @@ function npa_min(expr, level; solver=SCS.Optimizer)
 end
 
 function npa_min(expr, constraints, level; solver=SCS.Optimizer)
-    return npa_max(expr, contraints, level,
+    return npa_opt(expr, constraints, level,
                    solver=SCS.Optimizer,
                    goal=:minimise)
 end

@@ -12,6 +12,8 @@ Then to use/try out:
 include("qnpa.jl");
 ```
 
+I'll probably turn this into a package/module some time.
+
 
 
 ## Working examples
