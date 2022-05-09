@@ -345,14 +345,14 @@ function chtypes(fields, args::Array{Expr,1}, type::Symbol)
     return replace_seq(fields, (a => chtype(a, type) for a in args))
 end
 
-function ctor_ranges(lcname, fields)
+function ctor_ranges(lcname, fields, fieldnames)
     ifields = int_args(fields)
     to_sub = drop(powerset(ifields), 1)
 
     function mkrange(sub)
         fnames = getfieldnames(sub)
         nfields = chtypes(fields, sub, :IndexRange)
-        lfcall = :($lcname(party, $(fnames...)))
+        lfcall = :($lcname(party, $(fieldnames...)))
         lassgms = [:($a = $a) for a in fnames]
         comp = Expr(:comprehension, Expr(:generator, lfcall, lassgms...))
         
@@ -379,7 +379,7 @@ function constructor_defs(make_constructors, name, fields, fieldnames)
     end
 
     if mk_crange
-        mcrange = ctor_ranges(esc(lcname), cargs)
+        mcrange = ctor_ranges(esc(lcname), cargs, fieldnames)
     else
         mcrange = ()
     end
