@@ -1,6 +1,6 @@
 # QuantumNPA
 
-Code to do NPA in Julia. In development -- names of important functions or
+Code to do NPA in Julia. In development - names of important functions or
 even the entire project could change.
 
 Prerequisites:
@@ -8,12 +8,11 @@ Prerequisites:
 using Pkg; Pkg.add(["Combinatorics", "Convex", "SCS"])
 ```
 
-Then to use/try out:
+Then to use or try out:
 ```julia
-include("qnpa.jl");
+include("QuantumNPA.jl");
+using .QuantumNPA
 ```
-
-I'll probably turn this into a package/module some time.
 
 
 
