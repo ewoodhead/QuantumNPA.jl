@@ -13,6 +13,7 @@ Then to use or try out:
 include("QuantumNPA.jl");
 using .QuantumNPA
 ```
+(The dot in the second line isn't a typo.)
 
 
 
