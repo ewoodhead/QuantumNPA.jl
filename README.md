@@ -73,7 +73,7 @@ julia> (sqrt(2) - 1)/2
 0.20710678118654757
 ```
 
-CGLMP with d=3 at level 1 + A B:
+Maximise CGLMP with d=3 at level 1 + A B:
 ```julia
 julia> npa_max(cglmp(3), "1 + A B")
 2.914855484110488
@@ -83,6 +83,50 @@ julia> 1 + sqrt(11/3)
 ```
 This uses a function `cglmp()` already defined in `qnpa.jl` to construct the
 CGLMP operator.
+
+Maximise the global guessing probability Pg(A1,B1|E) in the CHSH setting
+using full statistics:
+```julia
+# Create projectors. The keyword argument 'full=true' means that the
+# operator corresponding to the highest-numbered output is directly set to
+# the identity minus the other ones. For example,
+#
+#   PA[2,1] = Id - PA[1,1]
+#
+# and
+#
+#   PE[4] = Id - PE[1] - PE[2] - PE[3]
+#
+# This is meant to make working in the Collins-Gisin projection (which the
+# NPA code uses) more convenient.
+PA = projector(1, 1:2, 1:2, full=true)
+PB = projector(2, 1:2, 1:2, full=true)
+PE = projector(5, 1:4, 1, full=true)
+
+# CHSH = 2*sqrt(2) * p
+p = 0.9
+
+# Expectation value of G is the probability that Eve correctly guesses
+# Alice's and Bob's joint outcome.
+G = sum(PA[a,1] * PB[b,1] * PE[2*(a-1) + b]
+        for a in 1:2 for b in 1:2)
+
+# Ideal CHSH-violating correlations mixed with noise. N.B., the actual
+# constraints imposed are on the expectation values of the operators
+# in the array.
+constraints = [PA[1,1] - 0.5,
+               PA[1,2] - 0.5,
+               PB[1,1] - 0.5,
+               PB[1,2] - 0.5,
+               PA[1,1]*PB[1,1] - 0.25*(1 + p/sqrt(2)),
+               PA[1,1]*PB[1,2] - 0.25*(1 + p/sqrt(2)),
+               PA[1,2]*PB[1,1] - 0.25*(1 + p/sqrt(2)),
+               PA[1,2]*PB[1,2] - 0.25*(1 - p/sqrt(2))]
+
+# This returns about 0.74618 for p = 0.9 at level 2 using the default SCS
+# solver.
+npa_max(G, constraints, 2)
+```
 
 
 
