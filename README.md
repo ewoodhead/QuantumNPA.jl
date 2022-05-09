@@ -1,6 +1,7 @@
 # QuantumNPA
 
-Code to do NPA in Julia. In development.
+Code to do NPA in Julia. In development -- names of important functions or
+even the entire project could change.
 
 Prerequisites:
 ```julia
