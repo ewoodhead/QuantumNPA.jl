@@ -196,9 +196,9 @@ julia> S^2
 
 The functions that create monomials and their parameters are
 ```julia
-dichotomic(party, input, output, full=false)
+dichotomic(party, input)
 fourier(party, input, power, d)
-projector(party, output, input)
+projector(party, output, input, full=false)
 unitary(party, index, conj=false)
 zbff(party, index, conj=false)
 ```
@@ -220,7 +220,7 @@ julia> projector(1, 1:2, 1:2)
  PA1|1  PA1|2
  PA2|1  PA2|2
 
-julia> projector(1, 1:3, 1:2, true)
+julia> projector(1, 1:3, 1:2, full=true)
 3×2 Array{Any,2}:
  PA1|1               PA1|2
  PA2|1               PA2|2
