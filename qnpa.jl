@@ -1569,10 +1569,16 @@ end
 
 
 
+default_solver = SCS.Optimizer
+
+function set_solver(solver)
+    global default_solver = solver
+end
+
 function npa_opt(expr,
                  constraints,
                  moments::Moments;
-                 solver=SCS.Optimizer,
+                 solver=default_solver,
                  goal=:maximise)
     # Reduce constraints to canonical form
 
@@ -1624,7 +1630,7 @@ end
 function npa_opt(expr,
                  constraints,
                  level;
-                 solver=SCS.Optimizer,
+                 solver=default_solver,
                  goal=:maximise)
     monomials = ops_at_level(level, [expr, constraints])
 
@@ -1637,22 +1643,22 @@ end
 
 
 
-function npa_max(expr, level; solver=SCS.Optimizer)
-    return npa_opt(expr, [], level, solver=SCS.Optimizer, goal=:maximise)
+function npa_max(expr, level; solver=default_solver)
+    return npa_opt(expr, [], level, solver=solver, goal=:maximise)
 end
 
-function npa_max(expr, constraints, level; solver=SCS.Optimizer)
+function npa_max(expr, constraints, level; solver=default_solver)
     return npa_opt(expr, constraints, level,
-                   solver=SCS.Optimizer,
+                   solver=solver,
                    goal=:maximise)
 end
 
-function npa_min(expr, level; solver=SCS.Optimizer)
-    return npa_opt(expr, [], level, solver=SCS.Optimizer, goal=:minimise)
+function npa_min(expr, level; solver=default_solver)
+    return npa_opt(expr, [], level, solver=solver, goal=:minimise)
 end
 
-function npa_min(expr, constraints, level; solver=SCS.Optimizer)
+function npa_min(expr, constraints, level; solver=default_solver)
     return npa_opt(expr, constraints, level,
-                   solver=SCS.Optimizer,
+                   solver=solver,
                    goal=:minimise)
 end

@@ -128,6 +128,22 @@ constraints = [PA[1,1] - 0.5,
 npa_max(G, constraints, 2)
 ```
 
+QuantumNPA calls the SCS solver by default (since it doesn't require a
+license) to solve the NPA relaxation of a quantum optimisation problem, but a
+keyword argument lets you specify a different one. E.g., solve a problem
+using Mosek (requires a license):
+```julia
+julia> using Mosek, MosekTools
+
+julia> npa_max(S, 2, solver=Mosek.Optimizer)
+2.82842711211242
+```
+You can also change the default solver if you don't want to specify it every
+time, e.g.,
+```julia
+julia> QuantumNPA.set_solver(Mosek.Optimizer)
+```
+
 
 
 ## Basic features
