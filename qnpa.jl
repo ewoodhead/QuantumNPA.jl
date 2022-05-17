@@ -391,7 +391,7 @@ end
 
 """
 Define a new type of operator with a given name (e.g., Projector), fields,
-and format string. In addition to generating the struct defintion this also
+and format string. In addition to generating the struct definition this also
 generates method definitions for the following generic functions:
 
   * Base.hash,
