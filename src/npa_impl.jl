@@ -1,5 +1,10 @@
 Moments = Dict{Monomial}{SparseMatrixCSC}
 
+"""
+Construct the NPA moment matrix. Returns a dictionary with monomials
+appearing in the moment matrix as keys and sparse matrices with 1s at
+their positions.
+"""
 function npa_moments(monomials)
     moments = Moments()
 
@@ -11,7 +16,7 @@ function npa_moments(monomials)
         for (j, y) in ops[i:end]
             m = conj(x)*y
 
-            if m == 0
+            if iszero(m)
                 continue
             end
 
@@ -36,17 +41,22 @@ function npa_moments(monomials)
     return moments
 end
 
+
+
 default_solver = SCS.Optimizer
 
 function set_solver(solver)
     global default_solver = solver
 end
 
-function npa_opt(expr,
+"""
+Generate the NPA relaxation for a given quantum optimisation problem (an
+operator expr whose expectation we want to maximise with the expectation
+values of the operators constraints set to zero).
+"""
+function npa2sdp(expr,
                  constraints,
-                 moments::Moments;
-                 solver=default_solver,
-                 goal=:maximise)
+                 moments::Moments)
     # Reduce constraints to canonical form
 
     if !(constraints isa Linspace)
@@ -77,6 +87,23 @@ function npa_opt(expr,
         end
     end
 
+    return (expr, moments)
+end
+
+function npa2sdp(expr,
+                 constraints,
+                 level)
+    monomials = ops_at_level(level, [expr, constraints])
+
+    return npa2sdp(expr,
+                   constraints,
+                   npa_moments(monomials))
+end
+
+"""
+Convert an SDP returned by npa2sdp to the Convex.jl problem format.
+"""
+function sdp2Convex(expr, moments; goal=:maximise)
     vars = Dict(m => ((m == Id) ? 1 : Variable())
                 for m in keys(moments))
 
@@ -89,9 +116,20 @@ function npa_opt(expr,
         problem = minimize(objective, [(gamma in :SDP)])
     end
 
+    return problem
+end
+
+function npa_opt(expr,
+                 constraints,
+                 moments::Moments;
+                 solver=default_solver,
+                 goal=:maximise)
+    (expr, constraints) = npa2sdp(expr, constraints, moments)
+
+    problem = sdp2Convex(expr, moments, goal=goal)
     solve!(problem, solver, silent_solver=true)
 
-    return evaluate(objective)
+    return problem.optval
 end
 
 function npa_opt(expr,
