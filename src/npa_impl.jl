@@ -137,25 +137,29 @@ end
 
 
 
-function npa_max(expr, level; solver=default_solver, verbose=false)
+function npa_max(expr, level; solver=default_solver, verbose=true)
     return npa_opt(expr, [], level, solver=solver, goal=:maximise)
 end
 
-function npa_max(expr, constraints, level; solver=default_solver)
+function npa_max(expr, constraints, level;
+                 solver=default_solver,
+                 verbose=true)
     return npa_opt(expr, constraints, level,
                    solver=solver,
                    verbose=verbose,
                    goal=:maximise)
 end
 
-function npa_min(expr, level; solver=default_solver)
+function npa_min(expr, level; solver=default_solver, verbose=true)
     return npa_opt(expr, [], level,
                    solver=solver,
                    verbose=verbose,
                    goal=:minimise)
 end
 
-function npa_min(expr, constraints, level; solver=default_solver)
+function npa_min(expr, constraints, level;
+                 solver=default_solver,
+                 verbose=true)
     return npa_opt(expr, constraints, level,
                    solver=solver,
                    verbose=verbose,
