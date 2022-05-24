@@ -125,33 +125,39 @@ function npa_opt(expr,
                  constraints,
                  level_or_moments;
                  solver=default_solver,
+                 verbose=true,
                  goal=:maximise)
     (expr, moments) = npa2sdp(expr, constraints, level_or_moments)
 
     problem = sdp2Convex(expr, moments, goal=goal)
-    solve!(problem, solver, silent_solver=true)
+    solve!(problem, solver, verbose=verbose, silent_solver=true)
 
     return problem.optval
 end
 
 
 
-function npa_max(expr, level; solver=default_solver)
+function npa_max(expr, level; solver=default_solver, verbose=false)
     return npa_opt(expr, [], level, solver=solver, goal=:maximise)
 end
 
 function npa_max(expr, constraints, level; solver=default_solver)
     return npa_opt(expr, constraints, level,
                    solver=solver,
+                   verbose=verbose,
                    goal=:maximise)
 end
 
 function npa_min(expr, level; solver=default_solver)
-    return npa_opt(expr, [], level, solver=solver, goal=:minimise)
+    return npa_opt(expr, [], level,
+                   solver=solver,
+                   verbose=verbose,
+                   goal=:minimise)
 end
 
 function npa_min(expr, constraints, level; solver=default_solver)
     return npa_opt(expr, constraints, level,
                    solver=solver,
+                   verbose=verbose,
                    goal=:minimise)
 end
