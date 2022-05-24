@@ -1,3 +1,5 @@
+# Convert party numbers to strings and vice versa.
+
 alphabet = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J',
             'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T',
             'U', 'V', 'W', 'X', 'Y', 'Z']
@@ -47,3 +49,66 @@ function split_party(s::String)
 end
 
 split_party(s::Symbol) = split_party(string(s))
+
+
+
+# Helper functions to print polynomials.
+
+num2str(x::Real) = "$x"
+
+function num2str(x::Rational)
+    a, b = numerator(x), denominator(x)
+
+    return (b != 1) ? "$a/$b" : "$a"
+end
+
+function csgn(x::Real, p::String = "+", m::String = "-")
+    return (x >= 0) ? p : m
+end
+
+function sgnnum(x::Number, p::String = "+", m::String = "-")
+    xr = real(x)
+    xi = imag(x)
+    
+    if xi == 0
+        return (csgn(xr, p, m), num2str(abs(xr)))
+    elseif xr == 0
+        return (csgn(xi, p, m), "$(num2str(abs(xi)))im")
+    else
+        xis = num2str(abs(xi))
+
+        if xr >= 0
+            xrs = num2str(xr)
+            s = csgn(xi)
+            
+            return (p, "($xrs $s $(xis)im)")
+        else
+            xrs = num2str(-xr)
+            s = csgn(-xi)
+
+            return (m, "($xrs $s $(xis)im)")
+        end
+    end
+end
+
+function firstcoeff2string(x::Number)
+    if x == 1
+        return ""
+    elseif x == -1
+        return "-"
+    else
+        (s, xs) = sgnnum(x, "", "-")
+        return "$s$xs "
+    end
+end
+
+function coeff2string(x::Number)
+    if x == 1
+        return " + "
+    elseif x == -1
+        return " - "
+    else
+        (s, xs) = sgnnum(x)
+        return " $s $xs "
+    end
+end

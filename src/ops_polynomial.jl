@@ -15,14 +15,30 @@ end
 Polynomial(x::Polynomial) = x
 
 function Polynomial(x::Base.Generator)
-    return Polynomial(Dict((m, demote(c)) for (m, c) in x))
+    return Polynomial(Dict((m, demote(c)) for (c, m) in x))
 end
 
 new_polynomial(x) = Polynomial(x)
 new_polynomial(p::Polynomial) = copy(p)
 
-Base.iterate(x::Polynomial) = iterate(x.terms)
-Base.iterate(x::Polynomial, state) = iterate(x.terms, state)
+
+
+# Iteration over Polynomials.
+
+function swap_mc(result)
+    if isnothing(result)
+        return nothing
+    else
+        ((m, c), state) = result
+        return (Pair{Number,Monomial}(c, m), state)
+    end
+end
+
+Base.iterate(x::Polynomial) = swap_mc(iterate(x.terms))
+
+Base.iterate(x::Polynomial, state) = swap_mc(iterate(x.terms, state))
+
+
 
 Base.hash(p::Polynomial, h::UInt) = hash(p.terms, h)
 
@@ -41,64 +57,6 @@ function Base.copy(x::Polynomial)
 end
 
 
-num2str(x::Real) = "$x"
-
-function num2str(x::Rational)
-    a, b = numerator(x), denominator(x)
-
-    return (b != 1) ? "$a/$b" : "$a"
-end
-
-function csgn(x::Real, p::String = "+", m::String = "-")
-    return (x >= 0) ? p : m
-end
-
-function sgnnum(x::Number, p::String = "+", m::String = "-")
-    xr = real(x)
-    xi = imag(x)
-    
-    if xi == 0
-        return (csgn(xr, p, m), num2str(abs(xr)))
-    elseif xr == 0
-        return (csgn(xi, p, m), "$(num2str(abs(xi)))im")
-    else
-        xis = num2str(abs(xi))
-
-        if xr >= 0
-            xrs = num2str(xr)
-            s = csgn(xi)
-            
-            return (p, "($xrs $s $(xis)im)")
-        else
-            xrs = num2str(-xr)
-            s = csgn(-xi)
-
-            return (m, "($xrs $s $(xis)im)")
-        end
-    end
-end
-
-function firstcoeff2string(x::Number)
-    if x == 1
-        return ""
-    elseif x == -1
-        return "-"
-    else
-        (s, xs) = sgnnum(x, "", "-")
-        return "$s$xs "
-    end
-end
-
-function coeff2string(x::Number)
-    if x == 1
-        return " + "
-    elseif x == -1
-        return " - "
-    else
-        (s, xs) = sgnnum(x)
-        return " $s $xs "
-    end
-end
 
 function Base.show(io::IO, p::Polynomial)
     if isempty(p)
@@ -106,7 +64,7 @@ function Base.show(io::IO, p::Polynomial)
     else
         c2s = firstcoeff2string
 
-        for (m, c) in sort(p)
+        for (c, m) in sort(p)
             print(io, c2s(c))
             show(io, m)
             c2s = coeff2string
@@ -144,7 +102,7 @@ function add!(x::Polynomial, y::Monomial)
 end
 
 function add!(x::Polynomial, y::Polynomial)
-    for (m, c) in y
+    for (c, m) in y
         x[m] += c
     end
 
@@ -165,7 +123,7 @@ function addmul!(x::Polynomial, y::Number, z::Monomial)
 end
 
 function addmul!(x::Polynomial, y::Number, z::Polynomial)
-    for (m, c) in z
+    for (c, m) in z
         x[m] += c*y
     end
 
@@ -186,7 +144,7 @@ function sub!(x::Polynomial, y::Monomial)
 end
 
 function sub!(x::Polynomial, y::Polynomial)
-    for (m, c) in y
+    for (c, m) in y
         x[m] -= c
     end
 
@@ -196,7 +154,7 @@ end
 
 
 function mul!(x::Polynomial, y::Number)
-    for (m, c) in x
+    for (c, m) in x
         x[m] = c*y
     end
 
@@ -238,7 +196,7 @@ Base.:+(x::Polynomial, y::Polynomial) = add!(copy(x), y)
 
 
 Base.:-(x::Monomial) = Polynomial(Dict(x => -1))
-Base.:-(x::Polynomial) = Polynomial((m, -c) for (m, c) in x)
+Base.:-(x::Polynomial) = Polynomial((-c, m) for (c, m) in x)
 
 
 
@@ -274,17 +232,17 @@ function Base.:*(x::Monomial, y::Monomial)
 end
 
 function Base.:*(x::Number, y::Polynomial)
-    return (x != 0) ? Polynomial((m, x*c) for (m, c) in y) : 0
+    return (x != 0) ? Polynomial((x*c, m) for (c, m) in y) : 0
 end
 
 function Base.:*(x::Polynomial, y::Number)
-    return (y != 0) ? Polynomial((m, y*c) for (m, c) in x) : 0
+    return (y != 0) ? Polynomial((y*c, m) for (c, m) in x) : 0
 end
 
 function Base.:*(x::Monomial, y::Polynomial)
     z = Polynomial()
 
-    for (m, c) in y
+    for (c, m) in y
         addmul!(z, c, x*m)
     end
 
@@ -294,7 +252,7 @@ end
 function Base.:*(x::Polynomial, y::Monomial)
     z = Polynomial()
 
-    for (m, c) in x
+    for (c, m) in x
         addmul!(z, c, m*y)
     end
 
@@ -304,8 +262,8 @@ end
 function Base.:*(x::Polynomial, y::Polynomial)
     z = Polynomial()
 
-    for (mx, cx) in x
-        for (my, cy) in y
+    for (cx, mx) in x
+        for (cy, my) in y
             addmul!(z, cx*cy, mx*my)
         end
     end
@@ -318,8 +276,8 @@ end
 Base.:/(x::Monomial, y::Number) = Polynomial(rdiv(1, y), x)
 
 function Base.:/(x::Polynomial, y::Number)
-    divs = ((m, rdiv(c, y)) for (m, c) in x)
-    return Polynomial((m, c) for (m, c) in divs if c != 0)
+    divs = ((rdiv(c, y), m) for (c, m) in x)
+    return Polynomial((c, m) for (c, m) in divs if c != 0)
 end
 
 
@@ -368,15 +326,19 @@ Base.:(==)(x::Polynomial, y::Polynomial) = isempty(x - y)
 
 
 function Base.conj(x::Polynomial)
-    return Polynomial((conj(m), conj(c)) for (m, c) in x)
+    return Polynomial((conj(c), conj(m)) for (c, m) in x)
 end
 
 function Base.adjoint(x::Polynomial)
-    return Polynomial((adjoint(m), adjoint(c)) for (m, c) in x)
+    return Polynomial((adjoint(m), adjoint(c)) for (c, m) in x)
 end
 
 Base.zero(::Polynomial) = Polynomial()
 
-
-
 Base.length(p::Polynomial) = length(p.terms)
+
+
+
+function conj_min(p::Polynomial)
+    return psum(real(c) * conj_min(m) for (c, m) in p)
+end

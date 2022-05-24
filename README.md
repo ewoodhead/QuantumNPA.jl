@@ -420,8 +420,8 @@ Base.KeySet for a Dict{Monomial,Number} with 4 entries. Keys:
   A2 B1
   A2 B2
 ```
-Polynomials will also act as iterators over pairs of their monomials and
-nonzero coefficients in contexts where an iterator is expected:
+Polynomials will also act as iterators over pairs of their nonzero
+coefficients and monomials in contexts where an iterator is expected:
 ```julia
 julia> collect(S)
 4-element Array{Any,1}:
@@ -430,7 +430,7 @@ julia> collect(S)
  Pair{Monomial,Number}(A2 B1, 1)
  Pair{Monomial,Number}(A2 B2, -1)
 
-julia> for (m, c) in S
+julia> for (c, m) in S
            @printf "%s  =>  %2d\n" m c
        end
 A2 B1  =>   1
@@ -441,7 +441,7 @@ A1 B1  =>   1
 If you want to iterate over the monomials in lexicographical order you can
 just call `sort()` on the polynomial first:
 ```julia
-julia> for (m, c) in sort(S)
+julia> for (c, m) in sort(S)
            @printf "%s  =>  %2d\n" m c
        end
 A1 B1  =>   1

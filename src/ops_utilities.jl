@@ -5,9 +5,9 @@ Sortable = Union{Base.Generator,
 
 Base.sort(g::Sortable; kws...) = sort!([x for x in g]; kws...)
 
-"Return pairs (m, c) of monomials and coefficients of polynomial in order."
+"Return pairs (c, m) of monomials and coefficients of polynomial in order."
 function Base.sort(p::Polynomial)
-    return sort!([(m, c) for (m, c) in p], by=first)
+    return sort!([(c, m) for (c, m) in p], by=(x -> x[2]))
 end
 
 
@@ -126,7 +126,7 @@ function substitute!(p::Polynomial, x::Polynomial, m::Monomial)
 
     pdivx = rdiv(pm, xm)
 
-    for (mx, c) in x
+    for (c, mx) in x
         p[mx] -= rmul(c, pdivx)
     end
 
@@ -189,7 +189,7 @@ canonical(x::RNum) = 1
 canonical(m::Monomial) = m
 
 function canonical_factor(p::Polynomial)
-    cfs = Rational[x for (_, x) in sort(p)
+    cfs = Rational[x for (x, _) in sort(p)
                        if (x isa RNum) && (!iszero(x))]
 
     if isempty(cfs)

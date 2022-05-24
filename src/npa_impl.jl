@@ -5,12 +5,12 @@ Construct the NPA moment matrix. Returns a dictionary with monomials
 appearing in the moment matrix as keys and sparse matrices with 1s at
 their positions.
 """
-function npa_moments(monomials)
+function npa_moments(operators)
     moments = Moments()
 
-    N = length(monomials)
+    N = length(operators)
 
-    ops = collect(enumerate(monomials))
+    ops = collect(enumerate(operators))
 
     for (i, x) in ops
         for (j, y) in ops[i:end]
@@ -49,6 +49,8 @@ function set_solver(solver)
     global default_solver = solver
 end
 
+
+
 """
 Generate the NPA relaxation for a given quantum optimisation problem (an
 operator expr whose expectation we want to maximise with the expectation
@@ -82,7 +84,7 @@ function npa2sdp(expr,
         q = constraint[m0]
         constraint[m0] = 0
 
-        for (m, c) in constraint
+        for (c, m) in constraint
             moments[m] -= rdiv(c, q)*G
         end
     end
@@ -107,7 +109,7 @@ function sdp2Convex(expr, moments; goal=:maximise)
     vars = Dict(m => ((m == Id) ? 1 : Variable())
                 for m in keys(moments))
 
-    objective = sum(c*vars[m] for (m, c) in expr)
+    objective = sum(c*vars[m] for (c, m) in expr)
     gamma = sum(g*vars[m] for (m, g) in moments)
 
     if goal in (:maximise, :maximize, :max)
@@ -121,29 +123,15 @@ end
 
 function npa_opt(expr,
                  constraints,
-                 moments::Moments;
+                 level_or_moments;
                  solver=default_solver,
                  goal=:maximise)
-    (expr, constraints) = npa2sdp(expr, constraints, moments)
+    (expr, moments) = npa2sdp(expr, constraints, level_or_moments)
 
     problem = sdp2Convex(expr, moments, goal=goal)
     solve!(problem, solver, silent_solver=true)
 
     return problem.optval
-end
-
-function npa_opt(expr,
-                 constraints,
-                 level;
-                 solver=default_solver,
-                 goal=:maximise)
-    monomials = ops_at_level(level, [expr, constraints])
-
-    return npa_opt(expr,
-                   constraints,
-                   npa_moments(monomials),
-                   solver=solver,
-                   goal=goal)
 end
 
 

@@ -100,6 +100,12 @@ Base.zero(m::Monomial) = 0
 
 
 
+function conj_min(m::Monomial)
+    return min(m, conj(m))
+end
+
+
+
 """
 Concatenate two monomials. This is used later to decide what the result
 of multiplying two monomials is.
