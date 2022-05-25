@@ -71,7 +71,7 @@ function make_term(term, ops::Dict{Integer,Set{Monomial}})
     if level isa Integer
         all_ops = union(values(ops)...)
 
-        return ops_at_level(level, all_ops)
+        return ops_at_level(all_ops, level)
     else
         result = Set([Id])
         
@@ -87,12 +87,12 @@ end
 
 
 "Return operators taken fron source at a given level of the NPA hierarchy."
-function ops_at_level(n::Integer, source)
+function ops_at_level(source, n::Integer)
     ops = operators(source)
-    return ops_at_level(n, ops)
+    return ops_at_level(ops, n)
 end
 
-function ops_at_level(n::Integer, ops::Set{Monomial})
+function ops_at_level(ops::Set{Monomial}, n::Integer)
     @assert n >= 0
 
     ops = copy(ops)
@@ -107,12 +107,12 @@ function ops_at_level(n::Integer, ops::Set{Monomial})
     return sort(result)
 end
 
-function ops_at_level(n::AbstractString, source)
+function ops_at_level(source, n::AbstractString)
     ops = operators(source, by_party=true)
-    return ops_at_level(n, ops)
+    return ops_at_level(ops, n)
 end
 
-function ops_at_level(n::AbstractString, ops::Dict{Integer,Set{Monomial}})
+function ops_at_level(ops::Dict{Integer,Set{Monomial}}, n::AbstractString)
     result = Set{Monomial}()
 
     for term in split(n, '+')
