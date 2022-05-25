@@ -340,5 +340,5 @@ Base.length(p::Polynomial) = length(p.terms)
 
 
 function conj_min(p::Polynomial)
-    return psum(real(c) * conj_min(m) for (c, m) in p)
+    return psum(conj_min(c) * conj_min(m) for (c, m) in p)
 end

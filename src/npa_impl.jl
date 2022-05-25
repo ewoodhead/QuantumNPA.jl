@@ -1,5 +1,21 @@
 Moments = Dict{Monomial}{SparseMatrixCSC}
 
+function sparse_sym_set!(matrix, i, j, val)
+    matrix[i, j] = val
+
+    if i != j
+        matrix[j, i] = val
+    end
+end
+
+function sparse_sym(N, i, j, val)
+    if i == j
+        return sparse([i], [i], [val], N, N)
+    else
+        return sparse([i, j], [j, i], [val, val], N, N)
+    end
+end
+
 """
 Construct the NPA moment matrix. Returns a dictionary with monomials
 appearing in the moment matrix as keys and sparse matrices with 1s at
@@ -14,31 +30,27 @@ function npa_moments(operators)
 
     for (i, x) in ops
         for (j, y) in ops[i:end]
-            m = conj(x)*y
+            p = Polynomial(conj_min(conj(x)*y))
 
-            if iszero(m)
-                continue
-            end
-
-            m = min(m, conj(m))
-
-            if haskey(moments, m)
-                moments[m][i, j] = 1
-
-                if i != j
-                    moments[m][j, i] = 1
-                end
-            else
-                if i == j
-                    moments[m] = sparse([i], [i], [1], N, N)
+            for (c, m) in p
+                if haskey(moments, m)
+                    sparse_sym_set!(moments[m], i, j, c)
                 else
-                    moments[m] = sparse([i, j], [j, i], [1, 1], N, N)
+                    moments[m] = sparse_sym(N, i, j, c)
                 end
             end
         end
     end
 
     return moments
+end
+
+function Base.display(moments::Moments)
+    for (m, moment) in moments
+        println()
+        println(m, " => ")
+        display(Array(moment))
+    end
 end
 
 
@@ -63,9 +75,9 @@ function npa2sdp(expr,
 
     if !(constraints isa Linspace)
         constraints = linspace(constraints)
-    else
-        constraints = deepcopy(constraints)
     end
+
+    constraints = Dict(m => conj_min(p) for (m, p) in constraints)
 
     if haskey(constraints, Id)
         @error "Contradiction Id = 0 in constraints."
@@ -138,7 +150,10 @@ end
 
 
 function npa_max(expr, level; solver=default_solver, verbose=true)
-    return npa_opt(expr, [], level, solver=solver, goal=:maximise)
+    return npa_opt(expr, [], level,
+                   solver=solver,
+                   verbose=verbose,
+                   goal=:maximise)
 end
 
 function npa_max(expr, constraints, level;

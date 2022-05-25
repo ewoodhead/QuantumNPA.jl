@@ -100,6 +100,8 @@ Base.zero(m::Monomial) = 0
 
 
 
+conj_min(x::Number) = real(x)
+
 function conj_min(m::Monomial)
     return min(m, conj(m))
 end
