@@ -33,7 +33,6 @@ value is a dictionary with:
     sparse matrices as the values. The sparse matrices contain coefficients
     obtained from the results of multiplying operators with the conjugates of
     operators in the same block together.
-
 """
 function npa_moments(operators)
     moments = Moments()
@@ -174,51 +173,66 @@ function npa2sdp(expr,
                    npa_moments(monomials))
 end
 
+npa2sdp(expr, lvl_or_constraints) = npa2sdp(expr, [], lvl_or_constraints)
+
+
+
 """
 Convert an SDP returned by npa2sdp to the Convex.jl problem format.
 """
-function sdp2Convex(expr, moments; goal=:maximise)
-    vars = Dict(m => ((m == Id) ? 1 : Variable())
-                for m in keys(moments))
+function sdp2jump(expr, moments; goal=:maximise)
+    model = Model()
+    
+    monomials = setdiff(keys(moments), (Id,))
+    @variable(model, v[monomials])
+    
+    objective = expr[Id] + sum(c*v[m] for (c, m) in expr)
 
-    objective = sum(c*vars[m] for (c, m) in expr)
     gamma = Dict()
 
     for (m, moment) in moments
-        v = vars[m]
+        var = ((m != Id) ? v[m] : 1);
 
         for (b, g) in moment
             if haskey(gamma, b)
-                gamma[b] += g*vars[m]
+                gamma[b] += g*var
             else
-                gamma[b] = g*vars[m]
+                gamma[b] = g*var
             end
         end
     end
 
-    constraints = [(g in :SDP) for g in values(gamma)]
-
-    if goal in (:maximise, :maximize, :max)
-        problem = maximize(objective, constraints)
-    elseif goal in (:minimise, :minimize, :min)
-        problem = minimize(objective, constraints)
+    for g in values(gamma)
+        @constraint(model, g >= 0, PSDCone())
     end
 
-    return problem
+    if goal in (:maximise, :maximize, :max)
+        @objective(model, Max, objective)
+    elseif goal in (:minimise, :minimize, :min)
+        @objective(model, Min, objective)
+    end
+
+    return model
 end
 
 function npa_opt(expr,
                  constraints,
                  level_or_moments;
                  solver=default_solver,
-                 verbose=true,
+                 verbose=false,
                  goal=:maximise)
     (expr, moments) = npa2sdp(expr, constraints, level_or_moments)
 
-    problem = sdp2Convex(expr, moments, goal=goal)
-    solve!(problem, solver, verbose=verbose, silent_solver=true)
+    model = sdp2jump(expr, moments, goal=goal)
+    set_optimizer(model, solver) #, add_bridges=false)
 
-    return problem.optval
+    if !verbose
+        set_silent(model)
+    end
+
+    optimize!(model)
+
+    return objective_value(model)
 end
 
 
@@ -243,7 +257,7 @@ function npa_min(expr, level; solver=default_solver, verbose=true)
     return npa_opt(expr, [], level,
                    solver=solver,
                    verbose=verbose,
-                   goal=:minimise)
+                   goal=:maximise)
 end
 
 function npa_min(expr, constraints, level;
@@ -252,5 +266,5 @@ function npa_min(expr, constraints, level;
     return npa_opt(expr, constraints, level,
                    solver=solver,
                    verbose=verbose,
-                   goal=:minimise)
+                   goal=:maximise)
 end

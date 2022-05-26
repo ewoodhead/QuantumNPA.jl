@@ -4,7 +4,7 @@ using Base.Iterators
 using Combinatorics
 #  powerset
 
-using Convex
+using JuMP
 using SCS
 
 using SparseArrays
