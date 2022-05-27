@@ -214,6 +214,8 @@ And data, a 16-element Array{VariableRef,1}:
  v[A1 B1 B2]
  v[A2]
 ```
+You can omit the `solver` keyword argument if you don't want to assign a
+solver.
 
 
 
