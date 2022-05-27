@@ -144,6 +144,77 @@ time, e.g.,
 julia> QuantumNPA.set_solver(Mosek.Optimizer)
 ```
 
+If you want to construct a JuMP model and solve it separately:
+```julia
+julia> model = npa2jump(S, "1 + A B", solver=SCS.Optimizer)
+A JuMP Model
+Maximization problem with:
+Variables: 16
+Objective function type: GenericAffExpr{Float64,VariableRef}
+`Array{GenericAffExpr{Float64,VariableRef},1}`-in-`MathOptInterface.PositiveSemidefiniteConeSquare`: 1 constraint
+Model mode: AUTOMATIC
+CachingOptimizer state: EMPTY_OPTIMIZER
+Solver name: SCS
+Names registered in the model: v
+
+julia> optimize!(model)
+----------------------------------------------------------------------------
+        SCS v2.1.4 - Splitting Conic Solver
+        (c) Brendan O'Donoghue, Stanford University, 2012
+----------------------------------------------------------------------------
+Lin-sys: sparse-direct, nnz in A = 36
+eps = 1.00e-05, alpha = 1.50, max_iters = 5000, normalize = 1, scale = 1.00
+acceleration_lookback = 10, rho_x = 1.00e-03
+Variables n = 16, constraints m = 45
+Cones:  sd vars: 45, sd blks: 1
+Setup time: 3.08e-04s
+SCS using variable warm-starting
+----------------------------------------------------------------------------
+ Iter | pri res | dua res | rel gap | pri obj | dua obj | kap/tau | time (s)
+----------------------------------------------------------------------------
+     0| 2.54e+19  0.00e+00  1.00e+00 -2.56e+19 -0.00e+00  2.06e+19  1.76e-04 
+    20| 1.54e-09  2.26e-09  1.05e-09 -2.83e+00 -2.83e+00  2.38e-17  2.25e-03 
+----------------------------------------------------------------------------
+Status: Solved
+Timing: Solve time: 2.27e-03s
+        Lin-sys: nnz in L factor: 97, avg solve time: 1.99e-06s
+        Cones: avg projection time: 7.35e-05s
+        Acceleration: avg step time: 2.23e-05s
+----------------------------------------------------------------------------
+Error metrics:
+dist(s, K) = 1.9436e-09, dist(y, K*) = 2.9284e-09, s'y/|s||y| = 7.9234e-12
+primal res: |Ax + s - b|_2 / (1 + |b|_2) = 1.5397e-09
+dual res:   |A'y + c|_2 / (1 + |c|_2) = 2.2622e-09
+rel gap:    |c'x + b'y| / (1 + |c'x| + |b'y|) = 1.0502e-09
+----------------------------------------------------------------------------
+c'x = -2.8284, -b'y = -2.8284
+============================================================================
+
+julia> objective_value(model)
+2.828427121779378
+
+julia> model[:v]
+1-dimensional DenseAxisArray{VariableRef,1,...} with index sets:
+    Dimension 1, Monomial[A1 A2, A1, A1 A2 B1, A1 A2 B2, A1 A2 B1 B2, A2 B1, B2, B1, B1 B2, A1 B2, A1 A2 B2 B1, A1 B1, A2 B2, A2 B1 B2, A1 B1 B2, A2]
+And data, a 16-element Array{VariableRef,1}:
+ v[A1 A2]
+ v[A1]
+ v[A1 A2 B1]
+ v[A1 A2 B2]
+ v[A1 A2 B1 B2]
+ v[A2 B1]
+ v[B2]
+ v[B1]
+ v[B1 B2]
+ v[A1 B2]
+ v[A1 A2 B2 B1]
+ v[A1 B1]
+ v[A2 B2]
+ v[A2 B1 B2]
+ v[A1 B1 B2]
+ v[A2]
+```
+
 
 
 ## Basic features
@@ -425,10 +496,11 @@ coefficients and monomials in contexts where an iterator is expected:
 ```julia
 julia> collect(S)
 4-element Array{Any,1}:
- Pair{Monomial,Number}(A1 B2, 1)
- Pair{Monomial,Number}(A1 B1, 1)
- Pair{Monomial,Number}(A2 B1, 1)
- Pair{Monomial,Number}(A2 B2, -1)
+4-element Array{Any,1}:
+ Pair{Number,Monomial}(1, A1 B2)
+ Pair{Number,Monomial}(1, A2 B1)
+ Pair{Number,Monomial}(1, A1 B1)
+ Pair{Number,Monomial}(-1, A2 B2)
 
 julia> for (c, m) in S
            @printf "%s  =>  %2d\n" m c

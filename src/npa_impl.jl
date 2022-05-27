@@ -122,11 +122,8 @@ function npa2sdp(expr,
                  moments::Moments)
     # Reduce constraints to canonical form
 
-    if !(constraints isa Linspace)
-        constraints = linspace(constraints)
-    end
-
-    constraints = Dict(m => conj_min(p) for (m, p) in constraints)
+    expr = conj_min(expr)
+    constraints = linspace(map(conj_min, constraints))
 
     if haskey(constraints, Id)
         @error "Contradiction Id = 0 in constraints."
@@ -180,14 +177,21 @@ npa2sdp(expr, lvl_or_constraints) = npa2sdp(expr, [], lvl_or_constraints)
 """
 Convert an SDP returned by npa2sdp to the Convex.jl problem format.
 """
-function sdp2jump(expr, moments; goal=:maximise)
-    model = Model()
+function sdp2jump(expr, moments; goal=:maximise, solver=nothing)
+    model = !isnothing(solver) ? Model(solver) : Model()
     
     monomials = setdiff(keys(moments), (Id,))
+
     @variable(model, v[monomials])
     
-    objective = expr[Id] + sum(c*v[m] for (c, m) in expr)
+    objective = expr[Id] + sum(c*v[m] for (c, m) in expr if m != Id)
 
+    if goal in (:maximise, :maximize, :max)
+        @objective(model, Max, objective)
+    elseif goal in (:minimise, :minimize, :min)
+        @objective(model, Min, objective)
+    end
+    
     gamma = Dict()
 
     for (m, moment) in moments
@@ -206,14 +210,27 @@ function sdp2jump(expr, moments; goal=:maximise)
         @constraint(model, g >= 0, PSDCone())
     end
 
-    if goal in (:maximise, :maximize, :max)
-        @objective(model, Max, objective)
-    elseif goal in (:minimise, :minimize, :min)
-        @objective(model, Min, objective)
-    end
+    return model
+end
+
+function npa2jump(expr,
+                  constraints,
+                  level_or_moments;
+                  goal=:maximise,
+                  solver=nothing)
+    (expr, moments) = npa2sdp(expr, constraints, level_or_moments)
+    model = sdp2jump(expr, moments, goal=goal, solver=solver)
 
     return model
 end
+
+function npa2jump(expr, level_or_moments;
+                  goal=:maximise,
+                  solver=nothing)
+    return npa2jump(expr, [], level_or_moments, goal=goal, solver=solver)
+end
+
+
 
 function npa_opt(expr,
                  constraints,
@@ -221,9 +238,8 @@ function npa_opt(expr,
                  solver=default_solver,
                  verbose=false,
                  goal=:maximise)
-    (expr, moments) = npa2sdp(expr, constraints, level_or_moments)
+    model = npa2jump(expr, constraints, level_or_moments, goal=goal)
 
-    model = sdp2jump(expr, moments, goal=goal)
     set_optimizer(model, solver) #, add_bridges=false)
 
     if !verbose
@@ -237,34 +253,34 @@ end
 
 
 
-function npa_max(expr, level; solver=default_solver, verbose=true)
-    return npa_opt(expr, [], level,
-                   solver=solver,
-                   verbose=verbose,
-                   goal=:maximise)
-end
-
 function npa_max(expr, constraints, level;
                  solver=default_solver,
-                 verbose=true)
+                 verbose=false)
     return npa_opt(expr, constraints, level,
                    solver=solver,
                    verbose=verbose,
                    goal=:maximise)
 end
 
-function npa_min(expr, level; solver=default_solver, verbose=true)
-    return npa_opt(expr, [], level,
+function npa_max(expr, level; solver=default_solver, verbose=false)
+    return npa_max(expr, [], level,
                    solver=solver,
-                   verbose=verbose,
-                   goal=:maximise)
+                   verbose=verbose)
 end
+
+
 
 function npa_min(expr, constraints, level;
                  solver=default_solver,
-                 verbose=true)
+                 verbose=false)
     return npa_opt(expr, constraints, level,
                    solver=solver,
                    verbose=verbose,
                    goal=:maximise)
+end
+
+function npa_min(expr, level; solver=default_solver, verbose=false)
+    return npa_min(expr, [], level,
+                   solver=solver,
+                   verbose=verbose)
 end
