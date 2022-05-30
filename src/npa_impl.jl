@@ -213,6 +213,49 @@ function sdp2jump(expr, moments; goal=:maximise, solver=nothing)
     return model
 end
 
+function sdp2jumpd(expr, moments; goal=:maximise, solver=nothing)
+    if goal in (:maximise, :maximize, :max)
+        maximise = true
+        s = 1
+    elseif goal in (:minimise, :minimize, :min)
+        maximise = false
+        s = -1
+    end
+    
+    model = !isnothing(solver) ? Model(solver) : Model()
+
+    N = Dict{Integer,Integer}()
+    
+    for (m, moment) in moments
+        for (b, mat) in moment
+            N[b] = first(size(mat))
+        end
+    end
+
+    Z = [@variable(model, [1:n, 1:n], PSD) for (b, n) in N]
+
+    objective = sum(sum(s*G.*Z[b] for (b, G) in moments[Id])) + expr[Id]
+
+    
+    if maximise
+        @objective(model, Min, objective)
+    else
+        @objective(model, Max, objective)
+    end
+
+    for (m, moment) in moments
+        if m != Id
+            c = expr[m]
+            
+            @constraint(model,
+                        sum(sum(F.*Z[b])
+                            for (b, F) in moment) + s*c == 0)
+        end
+    end
+
+    return model
+end
+
 function npa2jump(expr,
                   constraints,
                   level_or_moments;
