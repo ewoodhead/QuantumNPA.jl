@@ -174,10 +174,20 @@ npa2sdp(expr, lvl_or_constraints) = npa2sdp(expr, [], lvl_or_constraints)
 
 
 
+
+function set_verbosity!(model, verbose)
+    if !isnothing(verbose)
+        (!verbose ? set_silent : unset_silent)(model)
+    end
+end
+
 """
 Convert an SDP returned by npa2sdp to the Convex.jl problem format.
 """
-function sdp2jump(expr, moments; goal=:maximise, solver=nothing)
+function sdp2jump(expr, moments;
+                  goal=:maximise,
+                  solver=nothing,
+                  verbose=nothing)
     model = !isnothing(solver) ? Model(solver) : Model()
     
     monomials = setdiff(keys(moments), (Id,))
@@ -210,10 +220,15 @@ function sdp2jump(expr, moments; goal=:maximise, solver=nothing)
         @constraint(model, g >= 0, PSDCone())
     end
 
+    set_verbosity!(model, verbose)
+
     return model
 end
 
-function sdp2jumpd(expr, moments; goal=:maximise, solver=nothing)
+function sdp2jumpd(expr, moments;
+                   goal=:maximise,
+                   solver=nothing,
+                   verbose=nothing)
     if goal in (:maximise, :maximize, :max)
         maximise = true
         s = 1
@@ -253,6 +268,8 @@ function sdp2jumpd(expr, moments; goal=:maximise, solver=nothing)
         end
     end
 
+    set_verbosity!(model, verbose)
+
     return model
 end
 
@@ -262,17 +279,25 @@ function npa2jump(expr,
                   constraints,
                   level_or_moments;
                   goal=:maximise,
-                  solver=nothing)
+                  solver=nothing,
+                  verbose=nothing)
     (expr, moments) = npa2sdp(expr, constraints, level_or_moments)
-    model = sdp2jump(expr, moments, goal=goal, solver=solver)
+    model = sdp2jump(expr, moments,
+                     goal=goal,
+                     solver=solver,
+                     verbose=verbose)
 
     return model
 end
 
 function npa2jump(expr, level_or_moments;
                   goal=:maximise,
-                  solver=nothing)
-    return npa2jump(expr, [], level_or_moments, goal=goal, solver=solver)
+                  solver=nothing,
+                  verbose=nothing)
+    return npa2jump(expr, [], level_or_moments,
+                    goal=goal,
+                    solver=solver,
+                    verbose=verbose)
 end
 
 
@@ -281,17 +306,25 @@ function npa2jumpd(expr,
                    constraints,
                    level_or_moments;
                    goal=:maximise,
-                   solver=nothing)
+                   solver=nothing,
+                   verbose=nothing)
     (expr, moments) = npa2sdp(expr, constraints, level_or_moments)
-    model = sdp2jumpd(expr, moments, goal=goal, solver=solver)
+    model = sdp2jumpd(expr, moments,
+                      goal=goal,
+                      solver=solver,
+                      verbose=verbose)
 
     return model
 end
 
 function npa2jumpd(expr, level_or_moments;
                    goal=:maximise,
-                   solver=nothing)
-    return npa2jumpd(expr, [], level_or_moments, goal=goal, solver=solver)
+                   solver=nothing,
+                   verbose=nothing)
+    return npa2jumpd(expr, [], level_or_moments,
+                     goal=goal,
+                     solver=solver,
+                     verbose=verbose)
 end
 
 
@@ -299,9 +332,9 @@ end
 function npa_opt(expr,
                  constraints,
                  level_or_moments;
+                 goal=:maximise
                  solver=default_solver,
-                 verbose=false,
-                 goal=:maximise)
+                 verbose=false)
     model = npa2jump(expr, constraints, level_or_moments, goal=goal)
 
     set_optimizer(model, solver) #, add_bridges=false)
@@ -318,11 +351,11 @@ end
 
 
 function npa_optd(expr,
-                 constraints,
-                 level_or_moments;
-                 solver=default_solver,
-                 verbose=false,
-                 goal=:maximise)
+                  constraints,
+                  level_or_moments;
+                  goal=:maximise,
+                  solver=default_solver,
+                  verbose=false)
     model = npa2jumpd(expr, constraints, level_or_moments, goal=goal)
 
     set_optimizer(model, solver) #, add_bridges=false)
@@ -342,9 +375,9 @@ function npa_max(expr, constraints, level;
                  solver=default_solver,
                  verbose=false)
     return npa_opt(expr, constraints, level,
+                   goal=:maximise
                    solver=solver,
-                   verbose=verbose,
-                   goal=:maximise)
+                   verbose=verbose)
 end
 
 function npa_max(expr, level; solver=default_solver, verbose=false)
@@ -359,15 +392,15 @@ function npa_maxd(expr, constraints, level;
                   solver=default_solver,
                   verbose=false)
     return npa_optd(expr, constraints, level,
+                    goal=:maximise
                     solver=solver,
-                    verbose=verbose,
-                    goal=:maximise)
+                    verbose=verbose)
 end
 
 function npa_maxd(expr, level; solver=default_solver, verbose=false)
     return npa_maxd(expr, [], level,
-                   solver=solver,
-                   verbose=verbose)
+                    solver=solver,
+                    verbose=verbose)
 end
 
 
@@ -376,9 +409,9 @@ function npa_min(expr, constraints, level;
                  solver=default_solver,
                  verbose=false)
     return npa_opt(expr, constraints, level,
+                   goal=:maximise,
                    solver=solver,
-                   verbose=verbose,
-                   goal=:maximise)
+                   verbose=verbose)
 end
 
 function npa_min(expr, level; solver=default_solver, verbose=false)
@@ -393,9 +426,9 @@ function npa_mind(expr, constraints, level;
                   solver=default_solver,
                   verbose=false)
     return npa_optd(expr, constraints, level,
+                    goal=:maximise,
                     solver=solver,
-                    verbose=verbose,
-                    goal=:maximise)
+                    verbose=verbose)
 end
 
 function npa_mind(expr, level; solver=default_solver, verbose=false)
