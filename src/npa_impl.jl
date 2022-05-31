@@ -256,6 +256,8 @@ function sdp2jumpd(expr, moments; goal=:maximise, solver=nothing)
     return model
 end
 
+
+
 function npa2jump(expr,
                   constraints,
                   level_or_moments;
@@ -275,6 +277,25 @@ end
 
 
 
+function npa2jumpd(expr,
+                   constraints,
+                   level_or_moments;
+                   goal=:maximise,
+                   solver=nothing)
+    (expr, moments) = npa2sdp(expr, constraints, level_or_moments)
+    model = sdp2jumpd(expr, moments, goal=goal, solver=solver)
+
+    return model
+end
+
+function npa2jumpd(expr, level_or_moments;
+                   goal=:maximise,
+                   solver=nothing)
+    return npa2jumpd(expr, [], level_or_moments, goal=goal, solver=solver)
+end
+
+
+
 function npa_opt(expr,
                  constraints,
                  level_or_moments;
@@ -282,6 +303,27 @@ function npa_opt(expr,
                  verbose=false,
                  goal=:maximise)
     model = npa2jump(expr, constraints, level_or_moments, goal=goal)
+
+    set_optimizer(model, solver) #, add_bridges=false)
+
+    if !verbose
+        set_silent(model)
+    end
+
+    optimize!(model)
+
+    return objective_value(model)
+end
+
+
+
+function npa_optd(expr,
+                 constraints,
+                 level_or_moments;
+                 solver=default_solver,
+                 verbose=false,
+                 goal=:maximise)
+    model = npa2jumpd(expr, constraints, level_or_moments, goal=goal)
 
     set_optimizer(model, solver) #, add_bridges=false)
 
@@ -313,6 +355,23 @@ end
 
 
 
+function npa_maxd(expr, constraints, level;
+                  solver=default_solver,
+                  verbose=false)
+    return npa_optd(expr, constraints, level,
+                    solver=solver,
+                    verbose=verbose,
+                    goal=:maximise)
+end
+
+function npa_maxd(expr, level; solver=default_solver, verbose=false)
+    return npa_maxd(expr, [], level,
+                   solver=solver,
+                   verbose=verbose)
+end
+
+
+
 function npa_min(expr, constraints, level;
                  solver=default_solver,
                  verbose=false)
@@ -326,4 +385,21 @@ function npa_min(expr, level; solver=default_solver, verbose=false)
     return npa_min(expr, [], level,
                    solver=solver,
                    verbose=verbose)
+end
+
+
+
+function npa_mind(expr, constraints, level;
+                  solver=default_solver,
+                  verbose=false)
+    return npa_optd(expr, constraints, level,
+                    solver=solver,
+                    verbose=verbose,
+                    goal=:maximise)
+end
+
+function npa_mind(expr, level; solver=default_solver, verbose=false)
+    return npa_mind(expr, [], level,
+                    solver=solver,
+                    verbose=verbose)
 end
