@@ -332,7 +332,7 @@ end
 function npa_opt(expr,
                  constraints,
                  level_or_moments;
-                 goal=:maximise
+                 goal=:maximise,
                  solver=default_solver,
                  verbose=false)
     model = npa2jump(expr, constraints, level_or_moments, goal=goal)
@@ -358,7 +358,7 @@ function npa_optd(expr,
                   verbose=false)
     model = npa2jumpd(expr, constraints, level_or_moments, goal=goal)
 
-    set_optimizer(model, solver) #, add_bridges=false)
+    set_optimizer(model, solver)
 
     if !verbose
         set_silent(model)
@@ -375,7 +375,7 @@ function npa_max(expr, constraints, level;
                  solver=default_solver,
                  verbose=false)
     return npa_opt(expr, constraints, level,
-                   goal=:maximise
+                   goal=:maximise,
                    solver=solver,
                    verbose=verbose)
 end
@@ -392,7 +392,7 @@ function npa_maxd(expr, constraints, level;
                   solver=default_solver,
                   verbose=false)
     return npa_optd(expr, constraints, level,
-                    goal=:maximise
+                    goal=:maximise,
                     solver=solver,
                     verbose=verbose)
 end
