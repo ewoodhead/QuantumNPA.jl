@@ -7,8 +7,10 @@ using Combinatorics
 using JuMP
 using SCS
 
-using SparseArrays
+using LinearAlgebra
 
+using SparseArrays
+using BlockDiagonals
 
 
 include("src/operators.jl")

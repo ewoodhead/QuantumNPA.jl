@@ -1,11 +1,10 @@
-Block = Dict{Integer}{SparseMatrixCSC}
-Moments = Dict{Monomial}{Block}
+Moments = Dict{Monomial}{BlockDiagonal}
 
-function sparse_sym_set!(matrix, i, j, val)
-    matrix[i, j] = val
+function sparse_sym_add!(matrix, i, j, val)
+    matrix[i, j] += val
 
     if i != j
-        matrix[j, i] = val
+        matrix[j, i] += val
     end
 end
 
@@ -15,6 +14,28 @@ function sparse_sym(N, i, j, val)
     else
         return sparse([i, j], [j, i], [val, val], N, N)
     end
+end
+
+function npa_moments_block(operators)
+    N = length(operators)
+    iops = collect(enumerate(operators))
+    block = Dict{Monomial,SparseMatrixCSC}()
+
+    for (i, x) in iops
+        for (j, y) in iops[i:end]
+            p = Polynomial(conj_min(conj(x)*y))
+
+            for (c, m) in p
+                if !haskey(block, m)
+                    block[m] = sparse_sym(N, i, j, c)
+                else
+                    sparse_sym_add!(block[m], i, j, c)
+                end
+            end
+        end
+    end
+
+    return block
 end
 
 """
@@ -29,14 +50,10 @@ value is a dictionary with:
   * as keys: monomials obtained by multiplying operators in the same blocks
     together.
 
-  * as values: dictionaries with integers (block numbers) as the keys and
-    sparse matrices as the values. The sparse matrices contain coefficients
-    obtained from the results of multiplying operators with the conjugates of
-    operators in the same block together.
+  * as values: block-diagonal sparse matrices with coefficients obtained
+    from multiplying the input operators together.
 """
 function npa_moments(operators)
-    moments = Moments()
-
     if isempty(operators)
         return moments
     end
@@ -45,63 +62,26 @@ function npa_moments(operators)
         operators = [operators]
     end
 
-    for (nblock, ops) in enumerate(operators)
-        N = length(ops)
+    nblocks = length(operators)
+    bsizes = length.(operators)
+    blocks = npa_moments_block.(operators)
 
-        iops = collect(enumerate(ops))
+    ms = monomials(keys(block) for block in blocks)
 
-        for (i, x) in iops
-            for (j, y) in iops[i:end]
-                p = Polynomial(conj_min(conj(x)*y))
+    moments = Moments()
 
-                for (c, m) in p
-                    if haskey(moments, m)
-                        moment = moments[m]
+    for m in ms
+        blocks_m = [(haskey(block, m)
+                     ? block[m]
+                     : (n -> spzeros(n, n))(bsizes[b]))
+                    for (b, block) in enumerate(blocks)]
 
-                        if haskey(moment, nblock)
-                            sparse_sym_set!(moment[nblock], i, j, c)
-                        else
-                            moment[nblock] = sparse_sym(N, i, j, c)
-                        end
-                    else
-                        moments[m] = Block(nblock
-                                           => sparse_sym(N, i, j, c))
-                    end
-                end
-            end
-        end
+        moments[m] = BlockDiagonal(blocks_m)
     end
 
     return moments
 end
 
-function Base.show(io::IO, moments::Moments)
-    for (m, moment) in sort(moments)
-        println(io)
-        println(io, m, " => \n")
-
-        for (b, mat) in sort(moment)
-            println(io, "block ", b, ':')
-            println(io, mat)
-            println(io)
-        end
-
-        println(io)
-    end
-end
-
-function Base.display(moments::Moments)
-      for (m, moment) in sort(moments)
-        println()
-        println(m, " => \n")
-
-        for (b, mat) in sort(moment)
-            println("block ", b, ':')
-            display(Array(mat))
-            println()
-        end
-    end  
-end
 
 
 default_solver = SCS.Optimizer
@@ -109,6 +89,7 @@ default_solver = SCS.Optimizer
 function set_solver(solver)
     global default_solver = solver
 end
+
 
 
 
@@ -132,28 +113,17 @@ function npa2sdp(expr,
     # Reduce the objective expression, using constraints to eliminate
     # monomials
     expr = reduce_expr(expr, constraints)
-
     moments = deepcopy(moments)
 
     for (m0, constraint) in constraints
-        moment0 = moments[m0]
-        delete!(moments, m0)
-
         q = constraint[m0]
         constraint[m0] = 0
 
+        moment0 = moments[m0]
+        delete!(moments, m0)
+
         for (c, m) in constraint
-            moment = moments[m]
-
-            for (b, g) in moment0
-                delta = rdiv(c, q)*g
-
-                if haskey(moment, b)
-                    moment[b] -= delta
-                else
-                    moment[b] = -delta
-                end
-            end
+            moments[m] -= rdiv(c, q)*moment0
         end
     end
 
@@ -181,33 +151,28 @@ function set_verbosity!(model, verbose)
     end
 end
 
-"""
-Convert an SDP returned by npa2sdp to the Convex.jl problem format.
-"""
-function sdp2jump(expr, moments;
-                  goal=:maximise,
-                  solver=nothing,
-                  verbose=nothing)
-    model = !isnothing(solver) ? Model(solver) : Model()
-    
-    monomials = setdiff(keys(moments), (Id,))
 
-    @variable(model, v[monomials])
-    
-    objective = expr[Id] + sum(c*v[m] for (c, m) in expr if m != Id)
 
-    if goal in (:maximise, :maximize, :max)
-        @objective(model, Max, objective)
-    elseif goal in (:minimise, :minimize, :min)
-        @objective(model, Min, objective)
+function expr2objective(expr, vars)
+    return expr[Id] + sum(c*vars[m] for (c, m) in expr if m != Id)
+end
+
+"""
+Convert moments returned by npa2sdp() to moments in a format used by JuMP.jl
+or Convex.jl.
+"""
+function moments2gamma(moments, vars)
+    if isempty(moments)
+        return []
     end
-    
-    gamma = Dict()
+
+    n = nblocks(first(moments)[2])
+    gamma = zeros(Int, nblocks)
 
     for (m, moment) in moments
-        var = ((m != Id) ? v[m] : 1);
+        var = ((m != Id) ? vars[m] : 1)
 
-        for (b, g) in moment
+        for (b, g) in enumerate(blocks(moment))
             if haskey(gamma, b)
                 gamma[b] += g*var
             else
@@ -216,13 +181,68 @@ function sdp2jump(expr, moments;
         end
     end
 
+    return gamma
+end
+
+"""
+Convert an SDP returned by npa2sdp to the JuMP.jl problem format.
+"""
+function sdp2jump(expr, moments;
+                  goal=:maximise,
+                  solver=nothing,
+                  verbose=nothing)
+    model = !isnothing(solver) ? Model(solver) : Model()
+
+    monomials = setdiff(keys(moments), (Id,))
+
+    @variable(model, v[monomials])
+
+    objective = expr2objective(expr, v)
+    gamma = moments2gamma(moments, v)
+
     for g in values(gamma)
         @constraint(model, g >= 0, PSDCone())
+    end
+
+    if goal in (:maximise, :maximize, :max)
+        @objective(model, Max, objective)
+    elseif goal in (:minimise, :minimize, :min)
+        @objective(model, Min, objective)
     end
 
     set_verbosity!(model, verbose)
 
     return model
+end
+
+function sdp2convex(expr, moments;
+                    goal=:maximise)
+    monomials = setdiff(keys(moments), (Id,))
+
+    v = Dict(m => Variable() for m in monomials)
+
+    objective = expr2objective(expr, v)
+    gamma = moments2gamma(moments, v)
+
+    constraints = [(g in :SDP) for g in values(gamma)]
+
+    if goal in (:maximise, :maximize, :max)
+        problem = maximize(objective, constraints)
+    elseif goal in (:minimise, :minimize, :min)
+        problem = minimize(objective, constraints)
+    end
+
+    return problem
+end
+
+
+
+function BlockDiagonals.blocksizes(moments::Moments)
+    if isempty(moments)
+        return []
+    else
+        return first.(blocksizes(first(moments)[2]))
+    end
 end
 
 function sdp2jumpd(expr, moments;
@@ -239,18 +259,11 @@ function sdp2jumpd(expr, moments;
     
     model = !isnothing(solver) ? Model(solver) : Model()
 
-    N = Dict{Integer,Integer}()
-    
-    for (m, moment) in moments
-        for (b, mat) in moment
-            N[b] = first(size(mat))
-        end
-    end
+    Z = [@variable(model, [1:n, 1:n], PSD) for n in blocksizes(moments)]
 
-    Z = [@variable(model, [1:n, 1:n], PSD) for (b, n) in N]
-
-    objective = sum(sum(s*G.*Z[b] for (b, G) in moments[Id])) + expr[Id]
-
+    objective = (sum(LinearAlgebra.tr(s*G*Z[b])
+                     for (b, G) in enumerate(blocks(moments[Id])))
+                 + expr[Id])
     
     if maximise
         @objective(model, Min, objective)
@@ -263,14 +276,47 @@ function sdp2jumpd(expr, moments;
             c = expr[m]
             
             @constraint(model,
-                        sum(sum(F.*Z[b])
-                            for (b, F) in moment) + s*c == 0)
+                        sum(LinearAlgebra.tr(F*Z[b])
+                            for (b, F) in enumerate(blocks(moment)))
+                        + s*c == 0)
         end
     end
 
     set_verbosity!(model, verbose)
 
     return model
+end
+
+function sdp2convexd(expr, moments;
+                     goal=:maximise,
+                     solver=nothing,
+                     verbose=nothing)
+    if goal in (:maximise, :maximize, :max)
+        maximise = true
+        s = 1
+    elseif goal in (:minimise, :minimize, :min)
+        maximise = false
+        s = -1
+    end
+    
+    Z = [Semidefinite(bsize) for bsize in blocksizes(moments)]
+
+    objective = (sum(LinearAlgebra.tr(s*G*Z[b])
+                     for (b, G) in enumerate(blocks(moments[Id])))
+                 + expr[Id])
+    
+    constraints = [(sum(LinearAlgebra.tr(F*Z[b])
+                        for (b, F) in enumerate(blocks(moment)))
+                    + s*expr[m] == 0)
+                   for (m, moment) in moments if m != Id]
+
+    if maximise
+        problem = minimize(objective, constraints)
+    else
+        problem = maximize(objective, constraints)
+    end
+
+    return problem
 end
 
 
