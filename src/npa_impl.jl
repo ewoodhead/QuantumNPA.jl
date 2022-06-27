@@ -167,13 +167,13 @@ function moments2gamma(moments, vars)
     end
 
     n = nblocks(first(moments)[2])
-    gamma = zeros(Int, nblocks)
+    gamma = Vector(undef, n)
 
     for (m, moment) in moments
         var = ((m != Id) ? vars[m] : 1)
 
         for (b, g) in enumerate(blocks(moment))
-            if haskey(gamma, b)
+            if isassigned(gamma, b)
                 gamma[b] += g*var
             else
                 gamma[b] = g*var
@@ -383,6 +383,14 @@ function npa_opt(expr,
                  verbose=false)
     model = npa2jump(expr, constraints, level_or_moments, goal=goal)
 
+    optimise!(model, solver=solver, verbose=verbose)
+
+    return result(model)
+end
+
+
+
+function optimise!(model::Model; solver=default_solver, verbose=false)
     set_optimizer(model, solver) #, add_bridges=false)
 
     if !verbose
@@ -390,9 +398,17 @@ function npa_opt(expr,
     end
 
     optimize!(model)
-
-    return objective_value(model)
 end
+
+result(model::Model) = objective_value(model)
+    
+
+
+function optimise!(problem::Problem; solver=default_solver, verbose=false)
+    solve!(problem, solver, silent_solver=!verbose)
+end
+
+result(problem::Problem) = problem.optval
 
 
 
