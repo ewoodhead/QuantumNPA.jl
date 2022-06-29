@@ -5,6 +5,7 @@ using Combinatorics
 #  powerset
 
 using JuMP
+using Convex
 using SCS
 
 using LinearAlgebra
