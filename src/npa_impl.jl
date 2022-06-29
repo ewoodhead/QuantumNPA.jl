@@ -409,7 +409,7 @@ function npa_min(expr, constraints, level;
                  solver=default_solver,
                  verbose=false)
     return npa_opt(expr, constraints, level,
-                   goal=:maximise,
+                   goal=:minimise,
                    solver=solver,
                    verbose=verbose)
 end
@@ -426,7 +426,7 @@ function npa_mind(expr, constraints, level;
                   solver=default_solver,
                   verbose=false)
     return npa_optd(expr, constraints, level,
-                    goal=:maximise,
+                    goal=:minimise,
                     solver=solver,
                     verbose=verbose)
 end
