@@ -84,14 +84,13 @@ end
 
 
 
-default_solver = SCS.Optimizer
+function SparseArrays.dropzeros!(matrix::BlockDiagonal)
+    for blk in blocks(matrix)
+        dropzeros!(blk)
+    end
 
-function set_solver(solver)
-    global default_solver = solver
+    return matrix
 end
-
-
-
 
 """
 Generate the NPA relaxation for a given quantum optimisation problem (an
@@ -127,6 +126,16 @@ function npa2sdp(expr,
         end
     end
 
+    # Remove any zero coefficients that might be stored explicitly in the
+    # sparse matrices in the blocks.
+    # for matrix in values(moments)
+    #    dropzeros!(matrix)
+    # end
+    
+    moments = Moments(m => mat
+                      for (m, mat) in moments
+                          if !iszero(mat))
+
     return (expr, moments)
 end
 
@@ -144,6 +153,77 @@ npa2sdp(expr, lvl_or_constraints) = npa2sdp(expr, [], lvl_or_constraints)
 
 
 
+function SparseArrays.findnz(mat::BlockDiagonal)
+    base = 0
+
+    is = Int[]
+    js = Int[]
+    cs = []
+
+    for blk in blocks(mat)
+        (is1, js1, cs1) = findnz(blk)
+        append!(is, is1 .+ base)
+        append!(js, js1 .+ base)
+        append!(cs, cs1)
+        base += first(size(mat))
+    end
+
+    return (is, js, cs)
+end
+
+function firstnz(moment::BlockDiagonal)
+    base = 0
+
+    for blk in blocks(moment)
+        if !iszero(blk)
+            (i, j, c) = first((i, j, c)
+                           for (i, j, c) in zip(findnz(blk)...))
+            @assert !iszero(c)
+            return (i + base, j + base, c)
+        else
+            base += first(size(blk))
+        end
+    end
+end
+
+function constraint_matrices(moments::Moments)
+    moments = [copy(moment)
+               for (m, moment) in moments
+                   if m != Id]
+
+    reduced = Dict()
+
+    # Do the row echelon thing.
+    n = length(moments)
+
+    for (k, mat0) in enumerate(moments)
+        (i, j, c0) = firstnz(mat0)
+        mat0 /= c0
+
+        for l in (k+1):n
+            mat = moments[l]
+            c = mat[i, j]
+
+            if !iszero(c)
+                mat -= c*mat0
+                mat[i, j] = 0
+                mat[j, i] = 0
+            end
+        end
+
+        reduced[(i, j)] = dropzeros!(mat0)
+    end
+
+    return result
+end
+
+
+
+default_solver = SCS.Optimizer
+
+function set_solver(solver)
+    global default_solver = solver
+end
 
 function set_verbosity!(model, verbose)
     if !isnothing(verbose)
@@ -471,7 +551,7 @@ function npa_min(expr, constraints, level;
                  solver=default_solver,
                  verbose=false)
     return npa_opt(expr, constraints, level,
-                   goal=:maximise,
+                   goal=:minimise,
                    solver=solver,
                    verbose=verbose)
 end
@@ -488,7 +568,7 @@ function npa_mind(expr, constraints, level;
                   solver=default_solver,
                   verbose=false)
     return npa_optd(expr, constraints, level,
-                    goal=:maximise,
+                    goal=:minimise,
                     solver=solver,
                     verbose=verbose)
 end
