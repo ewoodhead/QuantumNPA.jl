@@ -122,7 +122,7 @@ function npa2sdp(expr,
         delete!(moments, m0)
 
         for (c, m) in constraint
-            moments[m] -= rdiv(c, q)*moment0
+            moments[m] -= rdiv(c, q) * moment0
         end
     end
 
@@ -177,8 +177,13 @@ function firstnz(moment::BlockDiagonal)
     for blk in blocks(moment)
         if !iszero(blk)
             (i, j, c) = first((i, j, c)
-                           for (i, j, c) in zip(findnz(blk)...))
+                              for (i, j, c) in zip(findnz(blk)...))
             @assert !iszero(c)
+
+            if (i > j)
+                (i, j) = (j, i)
+            end
+            
             return (i + base, j + base, c)
         else
             base += first(size(blk))
@@ -186,12 +191,48 @@ function firstnz(moment::BlockDiagonal)
     end
 end
 
+
+function bspzeros(bsizes)
+    return BlockDiagonal([spzeros(Number, n, n)
+                          for n in bsizes])
+end
+
+function Base.zero(bm::BlockDiagonal)
+    return bspzeros(first.(blocksizes(bm)))
+end
+
+"""
+Return upper triangular indices of blocks in a block diagonal matrix with
+blocks of size bsizes.
+"""
+function butindices(bsizes)
+    indices = Set{Tuple{Int,Int}}()
+
+    base = 0
+
+    for bsize in bsizes
+        for i in 1:bsize
+            for j in i:bsize
+                push!(indices, (i + base, j + base))
+            end
+        end
+
+        base += bsize
+    end
+    
+    return indices
+end
+
 function constraint_matrices(moments::Moments)
+    @assert(!isempty(moments))
+
+    bsizes = first.(blocksizes(first(values(moments))))
+
     moments = [copy(moment)
                for (m, moment) in moments
                    if m != Id]
 
-    reduced = Dict()
+    reduced = Dict{Tuple{Int,Int},BlockDiagonal}()
 
     # Do the row echelon thing.
     n = length(moments)
@@ -205,7 +246,7 @@ function constraint_matrices(moments::Moments)
             c = mat[i, j]
 
             if !iszero(c)
-                mat -= c*mat0
+                mat -= rmul(mat0, c)
                 mat[i, j] = 0
                 mat[j, i] = 0
             end
@@ -214,7 +255,25 @@ function constraint_matrices(moments::Moments)
         reduced[(i, j)] = dropzeros!(mat0)
     end
 
-    return result
+    indices = utindices(bsizes)
+    fixed = Set(keys(reduced))
+    other = setdiff(indices, fixed)
+
+    constraints = Set{BlockDiagonal}()
+
+    for (i0, j0) in other
+        cstr = bspzeros(bsizes)
+        cstr[i0, j0] = 1
+        #cstr[j0, i0] = 1
+
+        for ((i, j), gamma) in reduced
+            cstr[i, j] = -gamma[i0, j0]
+        end
+
+        push!(constraints, cstr)
+    end
+
+    return constraints
 end
 
 
