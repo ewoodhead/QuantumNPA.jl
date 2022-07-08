@@ -193,19 +193,26 @@ end
 
 
 function bspzeros(bsizes)
-    return BlockDiagonal([spzeros(Number, n, n)
-                          for n in bsizes])
+    return BlockDiagonal([spzeros(n, n) for n in bsizes])
 end
 
 function Base.zero(bm::BlockDiagonal)
     return bspzeros(first.(blocksizes(bm)))
 end
 
+function BlockDiagonals.blocksizes(moments::Moments)
+    if isempty(moments)
+        return []
+    else
+        return first.(blocksizes(first(moments)[2]))
+    end
+end
+
 """
 Return upper triangular indices of blocks in a block diagonal matrix with
 blocks of size bsizes.
 """
-function butindices(bsizes)
+function utindices(bsizes)
     indices = Set{Tuple{Int,Int}}()
 
     base = 0
@@ -278,7 +285,9 @@ end
 
 
 
-default_solver = SCS.Optimizer
+if !@isdefined(default_solver)
+    default_solver = SCS.Optimizer
+end
 
 function set_solver(solver)
     global default_solver = solver
@@ -354,6 +363,8 @@ function sdp2jump(expr, moments;
     return model
 end
 
+
+
 function sdp2convex(expr, moments;
                     goal=:maximise)
     monomials = setdiff(keys(moments), (Id,))
@@ -376,13 +387,41 @@ end
 
 
 
-function BlockDiagonals.blocksizes(moments::Moments)
-    if isempty(moments)
-        return []
-    else
-        return first.(blocksizes(first(moments)[2]))
+function sdp2jumpp(expr, moments;
+                   goal=:maximise,
+                   solver=nothing,
+                   verbose=nothing)
+    model = !isnothing(solver) ? Model(solver) : Model()
+    bsizes = blocksizes(moments)
+    Z = BlockDiagonal([@variable(model, [1:n, 1:n], PSD)
+                       for n in bsizes])
+    D = Z - moments[Id]
+
+    indices = sort(utindices(bsizes))
+    @time Fs = constraint_matrices(moments)
+
+    @time for F in Fs
+        @constraint(model, tr(F*D) == 0)
     end
+
+    b = [expr[m] for m in keys(moments)]
+
+    @time A = [M[i,j] for M in values(moments), (i, j) in indices]
+    @time x = A \ b
+    objective = sum(xi*Z[indices[i]...] for (i, xi) in enumerate(x))
+
+    if goal in (:maximise, :maximize, :max)
+        @objective(model, Max, objective)
+    elseif goal in (:minimise, :minimize, :min)
+        @objective(model, Min, objective)
+    end
+
+    set_verbosity!(model, verbose)
+
+    return model
 end
+
+
 
 function sdp2jumpd(expr, moments;
                    goal=:maximise,
