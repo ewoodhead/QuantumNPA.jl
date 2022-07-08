@@ -15,7 +15,7 @@ Base.:*(x::Operator, y::Operator) = (1, [x, y])
 # This controls how lists of operators are multiplied.
 # It is not very general at the moment.
 # Assumption: inputs opsx and opsy both contain at least one element.
-function join_ops(opsx::Array{Operator,1}, opsy::Array{Operator,1})
+function join_ops(opsx::Vector{Operator}, opsy::Vector{Operator})
     j = length(opsx)
     k = 1
     K = 1 + length(opsy)
@@ -26,7 +26,7 @@ function join_ops(opsx::Array{Operator,1}, opsy::Array{Operator,1})
         (c1, op) = opx * opy
 
         if c1 == 0
-            return (0, [])
+            return (0, Operator[])
         end
 
         c = rmul(c, c1)
@@ -34,7 +34,7 @@ function join_ops(opsx::Array{Operator,1}, opsy::Array{Operator,1})
         k += 1
 
         if (op != []) || (j == 0) || (k == K)
-            ops = vcat(opsx[1:j], op, opsy[k:end])
+            ops = Vector{Operator}(vcat(opsx[1:j], op, opsy[k:end]))
             return (c, ops)
         end
     end
@@ -57,6 +57,40 @@ Base.conj(o::Operator) = o
 Base.adjoint(o::Operator) = conj(o)
 
 Base.show(io::IO, o::Operator) = print(io, string(o))
+
+
+
+"Simplify (if possible) Tr[ops...]."
+function intrace_reduce(ops::Vector{Operator})
+    c = 1
+
+    while length(ops) > 2
+        x = ops[end]
+        y = ops[1]
+        zs = ops[2:end-1]
+
+        (c1, xy) = x*y
+
+        if length(xy) >= 2
+            break
+        end
+
+        c = rmul(c, c1)
+        ops = Vector{Operator}(vcat(xy, zs))
+    end
+
+    return (c, ops)
+end
+
+function opcycles(ops::Vector{Operator})
+    return (Vector{Operator}(vcat(ops[j:end], ops[1:j-1]))
+            for j in 1:length(ops))
+end
+
+function trace(ops::Vector{Operator})
+    (c, ops) = intrace_reduce(ops)
+    return (c, minimum(opcycles(ops)))
+end
 
 
 

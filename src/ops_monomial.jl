@@ -163,3 +163,19 @@ function join_monomials(x::Monomial, y::Monomial)
 
     return (coeff == 1) ? m : (coeff, m)
 end
+
+
+
+function ctrace(m::Monomial)
+    coeff = 1
+
+    pcops = [(p, trace(ops)) for (p, ops) in m.word]
+
+    for (_, (c, _)) in pcops
+        coeff = rmul(coeff, c)
+    end
+
+    m = Monomial([(p, ops) for (p, (_, ops)) in pcops])
+
+    return (coeff == 1) ? m : (coeff, m)
+end
