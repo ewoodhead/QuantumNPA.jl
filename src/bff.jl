@@ -18,7 +18,7 @@ function HAE_simple(Ms, constraints, level, m)
     ws = ws[2:end]
 
     Zs = zbff(5, 1:length(Ms))
-    Zcs = conj(Z)
+    Zcs = conj(Zs)
 
     result = 0
 
