@@ -5,7 +5,7 @@ even the entire project could change.
 
 Prerequisites:
 ```julia
-using Pkg; Pkg.add(["Combinatorics", "JuMP", "SCS"])
+using Pkg; Pkg.add(["Combinatorics", "JuMP", "SCS", "BlockDiagonals"])
 ```
 
 Then to use or try out:
