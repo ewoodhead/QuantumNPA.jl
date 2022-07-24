@@ -208,81 +208,6 @@ function BlockDiagonals.blocksizes(moments::Moments)
     end
 end
 
-"""
-Return upper triangular indices of blocks in a block diagonal matrix with
-blocks of size bsizes.
-"""
-function utindices(bsizes)
-    indices = Set{Tuple{Int,Int}}()
-
-    base = 0
-
-    for bsize in bsizes
-        for i in 1:bsize
-            for j in i:bsize
-                push!(indices, (i + base, j + base))
-            end
-        end
-
-        base += bsize
-    end
-    
-    return indices
-end
-
-function constraint_matrices(moments::Moments)
-    @assert(!isempty(moments))
-
-    bsizes = first.(blocksizes(first(values(moments))))
-
-    moments = [copy(moment)
-               for (m, moment) in moments
-                   if m != Id]
-
-    reduced = Dict{Tuple{Int,Int},BlockDiagonal}()
-
-    # Do the row echelon thing.
-    n = length(moments)
-
-    for (k, mat0) in enumerate(moments)
-        (i, j, c0) = firstnz(mat0)
-        mat0 /= c0
-
-        for l in (k+1):n
-            mat = moments[l]
-            c = mat[i, j]
-
-            if !iszero(c)
-                mat -= rmul(mat0, c)
-                mat[i, j] = 0
-                mat[j, i] = 0
-            end
-        end
-
-        reduced[(i, j)] = dropzeros!(mat0)
-    end
-
-    indices = utindices(bsizes)
-    fixed = Set(keys(reduced))
-    other = setdiff(indices, fixed)
-
-    constraints = Set{BlockDiagonal}()
-
-    for (i0, j0) in other
-        cstr = bspzeros(bsizes)
-        cstr[i0, j0] = 1
-        #cstr[j0, i0] = 1
-
-        for ((i, j), gamma) in reduced
-            cstr[i, j] = -gamma[i0, j0]
-        end
-
-        push!(constraints, cstr)
-    end
-
-    return constraints
-end
-
 
 
 if !@isdefined(default_solver)
@@ -332,101 +257,12 @@ function moments2gamma(moments, vars)
     return gamma
 end
 
-"""
-Convert an SDP returned by npa2sdp to the JuMP.jl problem format.
-"""
+
+
 function sdp2jump(expr, moments;
                   goal=:maximise,
                   solver=nothing,
                   verbose=nothing)
-    model = !isnothing(solver) ? Model(solver) : Model()
-
-    monomials = setdiff(keys(moments), (Id,))
-
-    @variable(model, v[monomials])
-
-    objective = expr2objective(expr, v)
-    gamma = moments2gamma(moments, v)
-
-    for g in values(gamma)
-        @constraint(model, g >= 0, PSDCone())
-    end
-
-    if goal in (:maximise, :maximize, :max)
-        @objective(model, Max, objective)
-    elseif goal in (:minimise, :minimize, :min)
-        @objective(model, Min, objective)
-    end
-
-    set_verbosity!(model, verbose)
-
-    return model
-end
-
-
-
-function sdp2convex(expr, moments;
-                    goal=:maximise)
-    monomials = setdiff(keys(moments), (Id,))
-
-    v = Dict(m => Variable() for m in monomials)
-
-    objective = expr2objective(expr, v)
-    gamma = moments2gamma(moments, v)
-
-    constraints = [(g in :SDP) for g in values(gamma)]
-
-    if goal in (:maximise, :maximize, :max)
-        problem = maximize(objective, constraints)
-    elseif goal in (:minimise, :minimize, :min)
-        problem = minimize(objective, constraints)
-    end
-
-    return problem
-end
-
-
-
-function sdp2jumpp(expr, moments;
-                   goal=:maximise,
-                   solver=nothing,
-                   verbose=nothing)
-    model = !isnothing(solver) ? Model(solver) : Model()
-    bsizes = blocksizes(moments)
-    Z = BlockDiagonal([@variable(model, [1:n, 1:n], PSD)
-                       for n in bsizes])
-    D = Z - moments[Id]
-
-    indices = sort(utindices(bsizes))
-    @time Fs = constraint_matrices(moments)
-
-    @time for F in Fs
-        @constraint(model, tr(F*D) == 0)
-    end
-
-    b = [expr[m] for m in keys(moments)]
-
-    @time A = [M[i,j] for M in values(moments), (i, j) in indices]
-    @time x = A \ b
-    objective = sum(xi*Z[indices[i]...] for (i, xi) in enumerate(x))
-
-    if goal in (:maximise, :maximize, :max)
-        @objective(model, Max, objective)
-    elseif goal in (:minimise, :minimize, :min)
-        @objective(model, Min, objective)
-    end
-
-    set_verbosity!(model, verbose)
-
-    return model
-end
-
-
-
-function sdp2jumpd(expr, moments;
-                   goal=:maximise,
-                   solver=nothing,
-                   verbose=nothing)
     if goal in (:maximise, :maximize, :max)
         maximise = true
         s = 1
@@ -465,38 +301,6 @@ function sdp2jumpd(expr, moments;
     return model
 end
 
-function sdp2convexd(expr, moments;
-                     goal=:maximise,
-                     solver=nothing,
-                     verbose=nothing)
-    if goal in (:maximise, :maximize, :max)
-        maximise = true
-        s = 1
-    elseif goal in (:minimise, :minimize, :min)
-        maximise = false
-        s = -1
-    end
-    
-    Z = [Semidefinite(bsize) for bsize in blocksizes(moments)]
-
-    objective = (sum(LinearAlgebra.tr(s*G*Z[b])
-                     for (b, G) in enumerate(blocks(moments[Id])))
-                 + expr[Id])
-    
-    constraints = [(sum(LinearAlgebra.tr(F*Z[b])
-                        for (b, F) in enumerate(blocks(moment)))
-                    + s*expr[m] == 0)
-                   for (m, moment) in moments if m != Id]
-
-    if maximise
-        problem = minimize(objective, constraints)
-    else
-        problem = maximize(objective, constraints)
-    end
-
-    return problem
-end
-
 
 
 function npa2jump(expr,
@@ -526,33 +330,6 @@ end
 
 
 
-function npa2jumpd(expr,
-                   constraints,
-                   level_or_moments;
-                   goal=:maximise,
-                   solver=nothing,
-                   verbose=nothing)
-    (expr, moments) = npa2sdp(expr, constraints, level_or_moments)
-    model = sdp2jumpd(expr, moments,
-                      goal=goal,
-                      solver=solver,
-                      verbose=verbose)
-
-    return model
-end
-
-function npa2jumpd(expr, level_or_moments;
-                   goal=:maximise,
-                   solver=nothing,
-                   verbose=nothing)
-    return npa2jumpd(expr, [], level_or_moments,
-                     goal=goal,
-                     solver=solver,
-                     verbose=verbose)
-end
-
-
-
 function npa_opt(expr,
                  constraints,
                  level_or_moments;
@@ -560,43 +337,6 @@ function npa_opt(expr,
                  solver=default_solver,
                  verbose=false)
     model = npa2jump(expr, constraints, level_or_moments, goal=goal)
-
-    optimise!(model, solver=solver, verbose=verbose)
-
-    return result(model)
-end
-
-
-
-function optimise!(model::Model; solver=default_solver, verbose=false)
-    set_optimizer(model, solver) #, add_bridges=false)
-
-    if !verbose
-        set_silent(model)
-    end
-
-    optimize!(model)
-end
-
-result(model::Model) = objective_value(model)
-    
-
-
-function optimise!(problem::Problem; solver=default_solver, verbose=false)
-    solve!(problem, solver, silent_solver=!verbose)
-end
-
-result(problem::Problem) = problem.optval
-
-
-
-function npa_optd(expr,
-                  constraints,
-                  level_or_moments;
-                  goal=:maximise,
-                  solver=default_solver,
-                  verbose=false)
-    model = npa2jumpd(expr, constraints, level_or_moments, goal=goal)
 
     set_optimizer(model, solver)
 
@@ -628,23 +368,6 @@ end
 
 
 
-function npa_maxd(expr, constraints, level;
-                  solver=default_solver,
-                  verbose=false)
-    return npa_optd(expr, constraints, level,
-                    goal=:maximise,
-                    solver=solver,
-                    verbose=verbose)
-end
-
-function npa_maxd(expr, level; solver=default_solver, verbose=false)
-    return npa_maxd(expr, [], level,
-                    solver=solver,
-                    verbose=verbose)
-end
-
-
-
 function npa_min(expr, constraints, level;
                  solver=default_solver,
                  verbose=false)
@@ -658,21 +381,4 @@ function npa_min(expr, level; solver=default_solver, verbose=false)
     return npa_min(expr, [], level,
                    solver=solver,
                    verbose=verbose)
-end
-
-
-
-function npa_mind(expr, constraints, level;
-                  solver=default_solver,
-                  verbose=false)
-    return npa_optd(expr, constraints, level,
-                    goal=:minimise,
-                    solver=solver,
-                    verbose=verbose)
-end
-
-function npa_mind(expr, level; solver=default_solver, verbose=false)
-    return npa_mind(expr, [], level,
-                    solver=solver,
-                    verbose=verbose)
 end
