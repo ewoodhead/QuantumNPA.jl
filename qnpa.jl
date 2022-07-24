@@ -5,10 +5,13 @@ using Combinatorics
 #  powerset
 
 using JuMP
+using Convex
 using SCS
 
-using SparseArrays
+using LinearAlgebra
 
+using SparseArrays
+using BlockDiagonals
 
 
 include("src/operators.jl")

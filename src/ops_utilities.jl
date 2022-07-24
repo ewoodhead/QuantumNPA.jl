@@ -24,7 +24,7 @@ all_monomials(m::Monomial) = (m,)
 monomials(s...) = monomials(s)
 
 "Return all the monomials in iterable itr."
-monomials(itr) = Set(flatten(map(monomials, itr)))
+monomials(itr) = Set(flatten([monomials(x) for x in itr]))
 
 "Return the monomials in polynomial x."
 monomials(p::Polynomial) = keys(p.terms)
