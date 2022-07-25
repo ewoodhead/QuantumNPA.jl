@@ -339,11 +339,13 @@ Base.length(p::Polynomial) = length(p.terms)
 
 
 
-function conj_min(p::Polynomial)
-    return psum(conj_min(c) * conj_min(m) for (c, m) in p)
+function conj_min(p::Polynomial; f=identity)
+    return psum(conj_min(c, f=f) * conj_min(m, f=f) for (c, m) in p)
 end
 
 
+
+trace(x::Number) = x
 
 function trace(m::Monomial)
     result = ctrace(m)

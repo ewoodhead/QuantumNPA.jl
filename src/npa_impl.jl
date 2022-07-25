@@ -16,14 +16,15 @@ function sparse_sym(N, i, j, val)
     end
 end
 
-function npa_moments_block(operators)
+function npa_moments_block(operators; f=identity)
     N = length(operators)
     iops = collect(enumerate(operators))
     block = Dict{Monomial,SparseMatrixCSC}()
 
     for (i, x) in iops
         for (j, y) in iops[i:end]
-            p = Polynomial(conj_min(conj(x)*y))
+            z = conj_min(conj(x)*y, f=f)
+            p = Polynomial(z)
 
             for (c, m) in p
                 if !haskey(block, m)
@@ -53,7 +54,7 @@ value is a dictionary with:
   * as values: block-diagonal sparse matrices with coefficients obtained
     from multiplying the input operators together.
 """
-function npa_moments(operators)
+function npa_moments(operators; f=identity)
     if isempty(operators)
         return moments
     end
@@ -64,7 +65,7 @@ function npa_moments(operators)
 
     nblocks = length(operators)
     bsizes = length.(operators)
-    blocks = npa_moments_block.(operators)
+    blocks = [npa_moments_block(o, f=f) for o in operators]
 
     ms = monomials(keys(block) for block in blocks)
 
@@ -99,11 +100,12 @@ values of the operators constraints set to zero).
 """
 function npa2sdp(expr,
                  constraints,
-                 moments::Moments)
+                 moments::Moments;
+                 f=identity)
     # Reduce constraints to canonical form
 
-    expr = conj_min(expr)
-    constraints = linspace(map(conj_min, constraints))
+    expr = conj_min(expr; f=f)
+    constraints = linspace(map(m -> conj_min(m, f=f), constraints))
 
     if haskey(constraints, Id)
         @error "Contradiction Id = 0 in constraints."
@@ -226,43 +228,11 @@ end
 
 
 
-function expr2objective(expr, vars)
-    return expr[Id] + sum(c*vars[m] for (c, m) in expr if m != Id)
-end
-
-"""
-Convert moments returned by npa2sdp() to moments in a format used by JuMP.jl
-or Convex.jl.
-"""
-function moments2gamma(moments, vars)
-    if isempty(moments)
-        return []
-    end
-
-    n = nblocks(first(moments)[2])
-    gamma = Vector(undef, n)
-
-    for (m, moment) in moments
-        var = ((m != Id) ? vars[m] : 1)
-
-        for (b, g) in enumerate(blocks(moment))
-            if isassigned(gamma, b)
-                gamma[b] += g*var
-            else
-                gamma[b] = g*var
-            end
-        end
-    end
-
-    return gamma
-end
-
-
-
 function sdp2jump(expr, moments;
                   goal=:maximise,
                   solver=nothing,
-                  verbose=nothing)
+                  verbose=nothing,
+                  fixed=Id)
     if goal in (:maximise, :maximize, :max)
         maximise = true
         s = 1
@@ -276,8 +246,8 @@ function sdp2jump(expr, moments;
     Z = [@variable(model, [1:n, 1:n], PSD) for n in blocksizes(moments)]
 
     objective = (sum(LinearAlgebra.tr(s*G*Z[b])
-                     for (b, G) in enumerate(blocks(moments[Id])))
-                 + expr[Id])
+                     for (b, G) in enumerate(blocks(moments[fixed])))
+                 + expr[fixed])
     
     if maximise
         @objective(model, Min, objective)
@@ -286,7 +256,7 @@ function sdp2jump(expr, moments;
     end
 
     for (m, moment) in moments
-        if m != Id
+        if m != fixed
             c = expr[m]
             
             @constraint(model,

@@ -100,10 +100,16 @@ Base.zero(m::Monomial) = 0
 
 
 
-conj_min(x::Number) = real(x)
+conj_min(x::Number; f=identity) = real(f(x))
 
-function conj_min(m::Monomial)
-    return min(m, conj(m))
+function conj_min(m::Monomial; f=identity)
+    z = f(m)
+
+    if iszero(z)
+        return 0
+    end
+
+    return min(z, f(conj(m)))
 end
 
 
