@@ -52,12 +52,26 @@ julia> npa_max(0.3 * A1 + 0.6 * A1*(B1 + B2) + A2*(B1 - B2), "1 + A B + A^2 B")
 2.3584742798682132
 ```
 
-Maximise `<A1>` subject to `<A1*(B1 + B2)> = 1.4` and `<A2*(B1 - B2)> = 1.4`,
-assuming the operator variables are already defined:
+You can specify both equality and inequality arguments using the `eq` and
+`ge` keyword arguments. These should be list of operators whose expectation
+values you want, respectively, to set to and lower bound by zero. For
+example, to maximise `<A1>` subject to `<A1*(B1 + B2)> = 1.4` and `<A2*(B1 -
+B2)> = 1.4`:
 ```julia
-julia> npa_max(A1, [A1*(B1 + B2) - 1.4, A2*(B1 - B2) - 1.4], 2)
+julia> npa_max(A1, 2, eq=[A1*(B1 + B2) - 1.4, A2*(B1 - B2) - 1.4])
 0.19802950752624165
 ```
+Maximise `<A1 + A2>` subject to `<A1 + 2*A2> <= 1 ` and `<2*A1 + A2> <= 1`:
+```julia
+julia> npa_max(A1 + A2, 1, ge=[1 - A1 - 2*A2, 1 - 2*A1 - A2])
+0.6666666597867417
+```
+Maximise `<A1 + A2>` subject to `<A1> = <A2>` and `<A1 + 2*A2> <= 1 `:
+```julia
+julia> npa_max(A1 + A2, 1, eq=[A1 - A2], ge=[1 - A1 - 2*A2])
+0.666642228695571
+```
+
 
 The above examples all use dichotomic variables, but projectors are also
 supported. Here we maximise the CH74 form of CHSH:
@@ -123,17 +137,17 @@ constraints = [PA[1,1] - 0.5,
                PA[1,2]*PB[1,1] - 0.25*(1 + p/sqrt(2)),
                PA[1,2]*PB[1,2] - 0.25*(1 - p/sqrt(2))]
 
-# This returns about 0.74618 for p = 0.9 at level 2 using the default SCS
+# This returns about 0.7467 for p = 0.9 at level 2 using the default SCS
 # solver.
-npa_max(G, constraints, 2)
+npa_max(G, 2, eq=constraints)
 ```
 
 QuantumNPA calls the SCS solver by default (since it doesn't require a
 license) to solve the NPA relaxation of a quantum optimisation problem, but a
 keyword argument lets you specify a different one. E.g., solve a problem
-using Mosek (requires a license):
+using Mosek (which you need a license file to use):
 ```julia
-julia> using Mosek, MosekTools
+julia> using MosekTools
 
 julia> npa_max(S, 2, solver=Mosek.Optimizer)
 2.82842711211242
@@ -141,81 +155,58 @@ julia> npa_max(S, 2, solver=Mosek.Optimizer)
 You can also change the default solver if you don't want to specify it every
 time, e.g.,
 ```julia
-julia> QuantumNPA.set_solver(Mosek.Optimizer)
+julia> set_solver!(Mosek.Optimizer)
 ```
 
 If you want to construct a JuMP model and solve it separately:
 ```julia
 julia> model = npa2jump(S, "1 + A B", solver=SCS.Optimizer)
 A JuMP Model
-Maximization problem with:
-Variables: 16
-Objective function type: GenericAffExpr{Float64,VariableRef}
-`Array{GenericAffExpr{Float64,VariableRef},1}`-in-`MathOptInterface.PositiveSemidefiniteConeSquare`: 1 constraint
+Minimization problem with:
+Variables: 45
+Objective function type: AffExpr
+`AffExpr`-in-`MathOptInterface.EqualTo{Float64}`: 16 constraints
+`Vector{VariableRef}`-in-`MathOptInterface.PositiveSemidefiniteConeTriangle`: 1 constraint
 Model mode: AUTOMATIC
 CachingOptimizer state: EMPTY_OPTIMIZER
 Solver name: SCS
-Names registered in the model: v
 
 julia> optimize!(model)
-----------------------------------------------------------------------------
-        SCS v2.1.4 - Splitting Conic Solver
+------------------------------------------------------------------
+               SCS v3.2.0 - Splitting Conic Solver
         (c) Brendan O'Donoghue, Stanford University, 2012
-----------------------------------------------------------------------------
-Lin-sys: sparse-direct, nnz in A = 36
-eps = 1.00e-05, alpha = 1.50, max_iters = 5000, normalize = 1, scale = 1.00
-acceleration_lookback = 10, rho_x = 1.00e-03
-Variables n = 16, constraints m = 45
-Cones:  sd vars: 45, sd blks: 1
-Setup time: 3.08e-04s
-SCS using variable warm-starting
-----------------------------------------------------------------------------
- Iter | pri res | dua res | rel gap | pri obj | dua obj | kap/tau | time (s)
-----------------------------------------------------------------------------
-     0| 2.54e+19  0.00e+00  1.00e+00 -2.56e+19 -0.00e+00  2.06e+19  1.76e-04 
-    20| 1.54e-09  2.26e-09  1.05e-09 -2.83e+00 -2.83e+00  2.38e-17  2.25e-03 
-----------------------------------------------------------------------------
-Status: Solved
-Timing: Solve time: 2.27e-03s
-        Lin-sys: nnz in L factor: 97, avg solve time: 1.99e-06s
-        Cones: avg projection time: 7.35e-05s
-        Acceleration: avg step time: 2.23e-05s
-----------------------------------------------------------------------------
-Error metrics:
-dist(s, K) = 1.9436e-09, dist(y, K*) = 2.9284e-09, s'y/|s||y| = 7.9234e-12
-primal res: |Ax + s - b|_2 / (1 + |b|_2) = 1.5397e-09
-dual res:   |A'y + c|_2 / (1 + |c|_2) = 2.2622e-09
-rel gap:    |c'x + b'y| / (1 + |c'x| + |b'y|) = 1.0502e-09
-----------------------------------------------------------------------------
-c'x = -2.8284, -b'y = -2.8284
-============================================================================
+------------------------------------------------------------------
+problem:  variables n: 45, constraints m: 61
+cones:    z: primal zero / dual free vars: 16
+          s: psd vars: 45, ssize: 1
+settings: eps_abs: 1.0e-04, eps_rel: 1.0e-04, eps_infeas: 1.0e-07
+          alpha: 1.50, scale: 1.00e-01, adaptive_scale: 1
+          max_iters: 100000, normalize: 1, rho_x: 1.00e-06
+          acceleration_lookback: 10, acceleration_interval: 10
+lin-sys:  sparse-direct
+          nnz(A): 81, nnz(P): 0
+------------------------------------------------------------------
+ iter | pri res | dua res |   gap   |   obj   |  scale  | time (s)
+------------------------------------------------------------------
+     0| 2.22e+01  1.00e+00  2.00e+02 -9.98e+01  1.00e-01  1.40e-04 
+    75| 1.51e-05  5.94e-08  5.35e-08  2.83e+00  1.00e-01  3.10e-03 
+------------------------------------------------------------------
+status:  solved
+timings: total: 3.48e-03s = setup: 3.66e-04s + solve: 3.11e-03s
+         lin-sys: 2.47e-04s, cones: 2.58e-03s, accel: 1.57e-05s
+------------------------------------------------------------------
+objective = 2.828427
+------------------------------------------------------------------
 
 julia> objective_value(model)
-2.828427121779378
-
-julia> model[:v]
-1-dimensional DenseAxisArray{VariableRef,1,...} with index sets:
-    Dimension 1, Monomial[A1 A2, A1, A1 A2 B1, A1 A2 B2, A1 A2 B1 B2, A2 B1, B2, B1, B1 B2, A1 B2, A1 A2 B2 B1, A1 B1, A2 B2, A2 B1 B2, A1 B1 B2, A2]
-And data, a 16-element Array{VariableRef,1}:
- v[A1 A2]
- v[A1]
- v[A1 A2 B1]
- v[A1 A2 B2]
- v[A1 A2 B1 B2]
- v[A2 B1]
- v[B2]
- v[B1]
- v[B1 B2]
- v[A1 B2]
- v[A1 A2 B2 B1]
- v[A1 B1]
- v[A2 B2]
- v[A2 B1 B2]
- v[A1 B1 B2]
- v[A2]
+2.8284273129779325
 ```
-You can omit the `solver` keyword argument if you don't want to assign a
-solver.
+If you call `npa2jump()` without the `solver` keyword argument then a solver
+isn't assigned, and you will have to assign one to the JuMP model using
+JuMP's `set_optimizer()` function. You can also suppress the output of the
+solver by either calling `npa2jump()` with the keyword argument `verbose` set
+to false or by using JuMP's `set_silent()` function on the returned JuMP
+model.
 
 
 
