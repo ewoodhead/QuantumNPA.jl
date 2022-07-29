@@ -27,7 +27,7 @@ julia> S = A1*(B1 + B2) + A2*(B1 - B2)
 A1 B1 + A1 B2 + A2 B1 - A2 B2
 
 julia> npa_max(S, 2)
-2.828427124718305
+2.828227712681755
 ```
 
 Maximise Svetlichny at level 1 + A B + A C + B C:
@@ -41,7 +41,7 @@ julia> S = -E(1,1,1) + E(1,1,2) + E(1,2,1) + E(1,2,2) + E(2,1,1) + E(2,1,2) + E(
 -A1 B1 C1 + A1 B1 C2 + A1 B2 C1 + A1 B2 C2 + A2 B1 C1 + A2 B1 C2 + A2 B2 C1 - A2 B2 C2
 
 julia> npa_max(S, "1 + A B + A C + B C")
-5.656854248886011
+5.656854315137034
 ```
 (note that the spaces e.g. between A and B are necessary in the string, since
 party labels go from A to Z then AA to ZZ then AAA to ZZZ...)
@@ -49,7 +49,7 @@ party labels go from A to Z then AA to ZZ then AAA to ZZZ...)
 Maximise a modified CHSH at level 1 + A B + A^2 B:
 ```julia
 julia> npa_max(0.3 * A1 + 0.6 * A1*(B1 + B2) + A2*(B1 - B2), "1 + A B + A^2 B")
-2.3584742798682132
+2.3584761820283977
 ```
 
 You can specify both equality and inequality arguments using the `eq` and
@@ -59,7 +59,7 @@ example, to maximise `<A1>` subject to `<A1*(B1 + B2)> = 1.4` and `<A2*(B1 -
 B2)> = 1.4`:
 ```julia
 julia> npa_max(A1, 2, eq=[A1*(B1 + B2) - 1.4, A2*(B1 - B2) - 1.4])
-0.19802950752624165
+0.19800616634180992
 ```
 Maximise `<A1 + A2>` subject to `<A1 + 2*A2> <= 1 ` and `<2*A1 + A2> <= 1`:
 ```julia
@@ -72,7 +72,6 @@ julia> npa_max(A1 + A2, 1, eq=[A1 - A2], ge=[1 - A1 - 2*A2])
 0.666642228695571
 ```
 
-
 The above examples all use dichotomic variables, but projectors are also
 supported. Here we maximise the CH74 form of CHSH:
 ```julia
@@ -81,7 +80,7 @@ julia> PA11, PA12 = projector(1,1,1:2);
 julia> PB11, PB12 = projector(2,1,1:2);
 
 julia> npa_max(-PA11 - PB11 + PA11*(PB11 + PB12) + PA12*(PB11 - PB12), 1)
-0.20710681094471445
+0.20701116471401693
 
 julia> (sqrt(2) - 1)/2
 0.20710678118654757
@@ -90,7 +89,7 @@ julia> (sqrt(2) - 1)/2
 Maximise CGLMP with d=3 at level 1 + A B:
 ```julia
 julia> npa_max(cglmp(3), "1 + A B")
-2.914855484110488
+2.914945976226541
 
 julia> 1 + sqrt(11/3)
 2.914854215512676
@@ -144,8 +143,8 @@ npa_max(G, 2, eq=constraints)
 
 QuantumNPA calls the SCS solver by default (since it doesn't require a
 license) to solve the NPA relaxation of a quantum optimisation problem, but a
-keyword argument lets you specify a different one. E.g., solve a problem
-using Mosek (which you need a license file to use):
+keyword argument `solver` lets you specify a different one. E.g., solve a
+problem using Mosek (which you need a license file to use):
 ```julia
 julia> using MosekTools
 
