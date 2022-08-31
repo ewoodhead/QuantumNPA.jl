@@ -1,5 +1,7 @@
+PartiedOpList = Vector{Tuple{Integer,Vector{Operator}}}
+
 struct Monomial
-    word::Array{Tuple{Integer,Array{Operator,1}},1}
+    word::PartiedOpList
 end
 
 function Monomial(party::Integer, operator::Operator)
@@ -20,13 +22,13 @@ Base.length(m::Monomial) = length(m.word)
 
 Base.hash(m::Monomial, h::UInt) = hash(m.word, h)
 
-function Base.show(io::IO, m::Monomial)
-    if isidentity(m)
+function show_pol(io::IO, word::PartiedOpList)
+    if isempty(word)
         print(io, "Id")
     else
         sep = ""
 
-        for (party, ops) in m
+        for (party, ops) in word
             for o in ops
                 print(io, sep)
                 print(io, string(o, party))
@@ -35,6 +37,8 @@ function Base.show(io::IO, m::Monomial)
         end
     end
 end
+
+Base.show(io::IO, m::Monomial) = show_pol(io, m.word)
 
 degree(x::Number) = !iszero(x) ? 0 : -Inf
 
@@ -126,7 +130,7 @@ function join_monomials(x::Monomial, y::Monomial)
     j = 1
     k = 1
 
-    word = Array{Tuple{Integer,Array{Operator,1}},1}()
+    word = PartiedOpList()
 
     while (j <= M) && (k <= N)
         (px, opsx) = x.word[j]
@@ -160,22 +164,6 @@ function join_monomials(x::Monomial, y::Monomial)
     append!(word, y.word[k:end])
 
     m = Monomial(word)
-
-    return (coeff == 1) ? m : (coeff, m)
-end
-
-
-
-function ctrace(m::Monomial)
-    coeff = 1
-
-    pcops = [(p, trace(ops)) for (p, ops) in m.word]
-
-    for (_, (c, _)) in pcops
-        coeff = rmul(coeff, c)
-    end
-
-    m = Monomial([(p, ops) for (p, (_, ops)) in pcops])
 
     return (coeff == 1) ? m : (coeff, m)
 end

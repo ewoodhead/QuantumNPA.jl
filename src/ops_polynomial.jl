@@ -349,8 +349,8 @@ function trace(m::Monomial)
     result = ctrace(m)
 
     if result isa Tuple
-        (c, tm) = result
-        return Polynomial(c, tm)
+        (c, x) = result
+        return Polynomial(c, x)
     else
         return result
     end

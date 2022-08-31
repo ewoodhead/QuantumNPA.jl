@@ -14,6 +14,7 @@ rdiv(x::Number, y::Number) = x / y
 rdiv(x::RNum, y::RNum) = demote(x//y)
 
 
+
 # Definition of abstract Operator type and infrastructure for primitive
 # operators.
 include("ops_primitive.jl")
@@ -24,6 +25,9 @@ include("ops_misc.jl")
 # Definition of monomials (products of operators divided into parties) and
 # supporting functions.
 include("ops_monomial.jl")
+
+# Definition of scalars other than number: trace of operators.
+include("ops_scalar.jl")
 
 # Definition of polynomials (linear combinations of monomials multiplied by
 # coefficients) and supporting functions.
