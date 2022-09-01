@@ -11,7 +11,9 @@ end
 
 Monomial(party, operator::Operator) = Monomial(party_num(party), operator)
 
-Id = Monomial([])
+if !@isdefined(Id)
+    const Id = Monomial([])
+end
 
 isidentity(m::Monomial) = isempty(m)
 
@@ -22,19 +24,23 @@ Base.length(m::Monomial) = length(m.word)
 
 Base.hash(m::Monomial, h::UInt) = hash(m.word, h)
 
+function show_nonempty_pol(io::IO, word::PartiedOpList)
+    sep = ""
+
+    for (party, ops) in word
+        for o in ops
+            print(io, sep)
+            print(io, string(o, party))
+            sep = " "
+        end
+    end
+end
+
 function show_pol(io::IO, word::PartiedOpList)
     if isempty(word)
         print(io, "Id")
     else
-        sep = ""
-
-        for (party, ops) in word
-            for o in ops
-                print(io, sep)
-                print(io, string(o, party))
-                sep = " "
-            end
-        end
+        show_nonempty_pol(io, word)
     end
 end
 
@@ -89,11 +95,12 @@ function Base.isless(x::Monomial, y::Monomial)
 end
 
 
-
-function Base.conj(m::Monomial)
-    return Monomial([(party, reverse!([conj(op) for op in ops]))
-                     for (party, ops) in m])
+function conj_pol(x::PartiedOpList)
+    return [(party, reverse!([conj(op) for op in ops]))
+            for (party, ops) in x]
 end
+
+Base.conj(m::Monomial) = Monomial(conj_pol(m.word))
 
 function Base.adjoint(m::Monomial)
     return Monomial([(party, reverse!([adjoint(op) for op in ops]))
@@ -116,15 +123,15 @@ end
 Concatenate two monomials. This is used later to decide what the result
 of multiplying two monomials is.
 """
-function join_monomials(x::Monomial, y::Monomial)
+function join_pol(x::PartiedOpList, y::PartiedOpList)
     coeff = 1
 
     if (M = length(x)) == 0
-        return y
+        return (coeff, y)
     end
 
     if (N = length(y)) == 0
-        return x
+        return (coeff, x)
     end
 
     j = 1
@@ -133,14 +140,14 @@ function join_monomials(x::Monomial, y::Monomial)
     word = PartiedOpList()
 
     while (j <= M) && (k <= N)
-        (px, opsx) = x.word[j]
-        (py, opsy) = y.word[k]
+        (px, opsx) = x[j]
+        (py, opsy) = y[k]
 
         if px < py
-            push!(word, x.word[j])
+            push!(word, x[j])
             j += 1
         elseif py < px
-            push!(word, y.word[k])
+            push!(word, y[k])
             k += 1
         else
             (c, ops) = join_ops(opsx, opsy)
@@ -160,10 +167,8 @@ function join_monomials(x::Monomial, y::Monomial)
         end
     end
 
-    append!(word, x.word[j:end])
-    append!(word, y.word[k:end])
+    append!(word, x[j:end])
+    append!(word, y[k:end])
 
-    m = Monomial(word)
-
-    return (coeff == 1) ? m : (coeff, m)
+    return (coeff, word)
 end

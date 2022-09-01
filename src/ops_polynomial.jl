@@ -221,14 +221,10 @@ Base.:*(x::Number, y::Monomial) = Polynomial(x, y)
 Base.:*(x::Monomial, y::Number) = Polynomial(y, x)
 
 function Base.:*(x::Monomial, y::Monomial)
-    product = join_monomials(x, y)
+    (c, word) = join_pol(x.word, y.word)
+    m = Monomial(word)
 
-    if product isa Tuple
-        (c, m) = product
-        return Polynomial(c, m)
-    else
-        return product
-    end
+    return (c == 1) ? m : Polynomial(c, m)
 end
 
 function Base.:*(x::Number, y::Polynomial)
@@ -346,14 +342,10 @@ end
 
 
 function trace(m::Monomial)
-    result = ctrace(m)
+    (c, word) = ctrace(m)
+    x = Trace(word)
 
-    if result isa Tuple
-        (c, x) = result
-        return Polynomial(c, x)
-    else
-        return result
-    end
+    return (c == 1) ? x : Polynomial(c, x)
 end
 
 trace(p::Polynomial) = psum(c*trace(m) for (c, m) in p)
