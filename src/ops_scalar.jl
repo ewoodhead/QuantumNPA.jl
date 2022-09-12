@@ -6,7 +6,7 @@ end
 
 function Base.show(io::IO, x::Trace)
     print(io, "Tr[")
-    show(io, x.word)
+    show_pol(io, x.word)
     print(io, ']')
 end
 
