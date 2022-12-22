@@ -221,14 +221,9 @@ Base.:*(x::Number, y::Monomial) = Polynomial(x, y)
 Base.:*(x::Monomial, y::Number) = Polynomial(y, x)
 
 function Base.:*(x::Monomial, y::Monomial)
-    product = join_monomials(x, y)
+    (c, m) = join_monomials(x, y)
 
-    if product isa Tuple
-        (c, m) = product
-        return Polynomial(c, m)
-    else
-        return product
-    end
+    return (c != 1) ? Polynomial(c, m) : m
 end
 
 function Base.:*(x::Number, y::Polynomial)

@@ -1,13 +1,12 @@
+OpVector = Vector{Tuple{PartyVec,Vector{Operator}}}
+
 struct Monomial
-    word::Array{Tuple{Integer,Array{Operator,1}},1}
+    word::OpVector
 end
 
-function Monomial(party::Integer, operator::Operator)
-    @assert party > 0
-    return Monomial([(party, [operator])])
+function Monomial(party, operator::Operator)
+    return Monomial([(party_vec(party), [operator])])
 end
-
-Monomial(party, operator::Operator) = Monomial(party_num(party), operator)
 
 Id = Monomial([])
 
@@ -86,83 +85,175 @@ end
 
 
 
-function Base.conj(m::Monomial)
-    return Monomial([(party, reverse!([conj(op) for op in ops]))
-                     for (party, ops) in m])
-end
-
-function Base.adjoint(m::Monomial)
-    return Monomial([(party, reverse!([adjoint(op) for op in ops]))
-                     for (party, ops) in m])
-end
-
 Base.zero(m::Monomial) = 0
 
 
 
 conj_min(x::Number) = real(x)
 
-function conj_min(m::Monomial)
-    return min(m, conj(m))
+conj_min(m::Monomial) = min(m, conj(m))
+
+
+
+"""
+Test if vectors u and v are the same up to index n. Returns 0 if they are,
+otherwise returns the first index where they differ.
+"""
+function same_upto(u, v, n)
+    k = 0
+    
+    while ((k += 1) <= n)
+        if u[k] != v[k]
+            return k
+        end
+    end
+
+    return 0
 end
 
+"""
+Test if two party vecs have any parties in common, optionally starting from
+given indices j0 and k0.
+"""
+function parties_isect(u::PartyVec,
+                       v::PartyVec,
+                       j=1,
+                       k=1,
+                       m=length(u),
+                       n=length(v))
+    if (j > m) || (k > n)
+        return true
+    end
 
+    p = u[j]
+    q = v[k]
+
+    while true
+        if p == q
+            return true
+        elseif p < q
+            if (j += 1) > m
+                return false
+            end
+         
+            p = u[j]
+        else
+            if (k += 1) > n
+                return false
+            end
+
+            q = v[k]
+        end
+    end
+end
+
+"""
+Test if two party vecs should be swapped (return :swap), merged
+(return :join), or left in the order they already are (return :leave).
+"""
+function swap_or_join(u::PartyVec, v::PartyVec)
+    if (m = length(u)) == 0
+        return isempty(v) ? :join : :leave
+    elseif (n = length(v)) == 0
+        return :swap
+    end
+
+    if u[1] < v[1]
+        return :leave
+    end
+
+    if (m == n) && ((k0 = same_upto(u, v, m)) == 0)
+        return :join
+    else
+        k0 = 1
+    end
+
+    return parties_isect(u, v, k0, k0, m, n) ? :leave : :swap
+end
+
+function last_nonswap(x::OpVector, j0::Int, m::Int, q::PartyVec)
+    j = m
+    result = :leave
+
+    while j >= j0
+        p = x[j][1]
+        result = swap_or_join(p, q)
+
+        if result !== :swap
+            break
+        end
+
+        j -= 1
+        result = :leave
+    end
+
+    return (j, result)
+end
+
+function join_words(x::OpVector, y::OpVector)
+    coeff = 1
+
+    if (m = length(x)) == 0
+        return (coeff, y)
+    elseif (n = length(y)) == 0
+        return (coeff, x)
+    end
+
+    word = OpVector()
+
+    j = 1
+    k = 1
+
+    while k <= n
+        qv = y[k]
+        (q, v) = qv
+        (j1, action) = last_nonswap(x, j, m, q)
+
+        if action === :join
+            append!(word, view(x, j:(j1-1)))
+            (c, ops) = join_ops(x[j][2], v)
+
+            if iszero(c)
+                return (0, OpVector[])
+            end
+
+            coeff *= c
+
+            if !isempty(ops)
+                push!(word, (q, ops))
+            end
+        else
+            append!(word, view(x, j:j1))
+            push!(word, qv)
+        end
+
+        j = j1 + 1
+        k += 1
+    end
+
+    append!(word, view(x, j:m))
+
+    return (coeff, word)
+end
 
 """
 Concatenate two monomials. This is used later to decide what the result
 of multiplying two monomials is.
 """
 function join_monomials(x::Monomial, y::Monomial)
-    coeff = 1
-
-    if (M = length(x)) == 0
-        return y
-    end
-
-    if (N = length(y)) == 0
-        return x
-    end
-
-    j = 1
-    k = 1
-
-    word = Array{Tuple{Integer,Array{Operator,1}},1}()
-
-    while (j <= M) && (k <= N)
-        (px, opsx) = x.word[j]
-        (py, opsy) = y.word[k]
-
-        if px < py
-            push!(word, x.word[j])
-            j += 1
-        elseif py < px
-            push!(word, y.word[k])
-            k += 1
-        else
-            (c, ops) = join_ops(opsx, opsy)
-
-            if c == 0
-                return 0
-            end
-
-            coeff *= c
-
-            if !isempty(ops)
-                push!(word, (px, ops))
-            end
-
-            j += 1
-            k += 1
-        end
-    end
-
-    append!(word, x.word[j:end])
-    append!(word, y.word[k:end])
-
-    m = Monomial(word)
-
-    return (coeff == 1) ? m : (coeff, m)
+    (c, word) = join_words(x.word, y.word)
+    return (c, Monomial(word))
 end
+
+
+
+function word_adjoint(w::OpVector)
+    
+end
+
+Base.adjoint(m::Monomial) = Monomial(word_adjoint(m.word))
+
+Base.conj(m::Monomial) = Base.adjoint(m::Monomial)
 
 
 
