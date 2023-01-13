@@ -28,9 +28,9 @@ For example:
 
   parse_level_term("2")           =>  2
 
-  parse_level_term("A^2 B B E")   =>  Dict(1 => 2,
-                                           2 => 2,
-                                           5 => 1)
+  parse_level_term("A^2 B B E")   =>  Dict([1] => 2,
+                                           [2] => 2,
+                                           [5] => 1)
 """
 function parse_level_term(term)
     term = strip(term)
