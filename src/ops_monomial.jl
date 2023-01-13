@@ -187,12 +187,10 @@ function insert_at(p::PartyVec, y::OpVector, n::Int)
     return (n+1, :leave)
 end
 
-function join_words(x::OpVector,
-                    y::OpVector=Id_word,
-                    conj_x::Bool=false)
+function join_words(x::OpVector, y::OpVector)
     if (m = length(x)) == 0
         return (1, y)
-    elseif ((n = length(y)) == 0) && (conj_x == false)
+    elseif (n = length(y)) == 0
         return (1, x)
     end
 
@@ -200,15 +198,7 @@ function join_words(x::OpVector,
     word = copy(y)
     k = n
 
-    if conj_x
-        cx = ((p, map(conj, Iterators.reverse(ops)))
-              for (p, ops) in x)
-        enum_word = enumerate(cx)
-    else
-        enum_word = Iterators.reverse(enumerate(x))
-    end
-    
-    for (j, pu) in enum_word
+    for (j, pu) in Iterators.reverse(enumerate(x))
         (p, u) = pu
         (k, action) = insert_at(p, word, k)
 
@@ -250,11 +240,33 @@ end
 
 
 
-word_adjoint(w::OpVector) = join_words(w, Id_word, true)
+function word_conj(word::OpVector)
+    result = OpVector()
 
-Base.adjoint(m::Monomial) = Monomial(word_adjoint(m.word)[2])
+    for (p, u) in word
+        w = map(conj, Iterators.reverse(u))
 
-Base.conj(m::Monomial) = Base.adjoint(m::Monomial)
+        k = 1
+        n = length(result)
+
+        while k <= n
+            q = result[k][1]
+
+            if swap_or_join(p, q) !== :swap
+                break
+            end
+            
+            k += 1
+        end
+
+        insert!(result, k, (p, w))
+    end
+
+    return result
+end
+
+Base.conj(m::Monomial) = Monomial(word_conj(m.word))
+Base.adjoint(m::Monomial) = Monomial(word_conj(m.word))
 
 
 
