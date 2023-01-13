@@ -171,23 +171,19 @@ function swap_or_join(u::PartyVec, v::PartyVec)
     return parties_isect(u, v, k0, k0, m, n) ? :leave : :swap
 end
 
-function last_nonswap(x::OpVector, j0::Int, m::Int, q::PartyVec)
-    j = m
-    result = :leave
-
-    while j >= j0
+function insert_at(x::OpVector, j0::Int, m::Int, q::PartyVec)
+    for j in m:-1:j0
         p = x[j][1]
         result = swap_or_join(p, q)
 
-        if result !== :swap
-            break
+        if result === :join
+            return (j, :join)
+        elseif result === :leave
+            return (j+1, :leave)
         end
-
-        j -= 1
-        result = :leave
     end
 
-    return (j, result)
+    return (j0, :leave)
 end
 
 function join_words(x::OpVector, y::OpVector)
@@ -199,19 +195,15 @@ function join_words(x::OpVector, y::OpVector)
         return (coeff, x)
     end
 
-    word = OpVector()
-
+    word = copy(x)
     j = 1
-    k = 1
 
-    while k <= n
-        qv = y[k]
+    for (k, qv) in enumerate(y)
         (q, v) = qv
-        (j1, action) = last_nonswap(x, j, m, q)
+        (j, action) = insert_at(word, j, m, q)
 
         if action === :join
-            append!(word, view(x, j:(j1-1)))
-            (c, ops) = join_ops(x[j][2], v)
+            (c, w) = join_ops(word[j][2], v)
 
             if iszero(c)
                 return (0, OpVector[])
@@ -219,19 +211,20 @@ function join_words(x::OpVector, y::OpVector)
 
             coeff *= c
 
-            if !isempty(ops)
-                push!(word, (q, ops))
+            if !isempty(w)
+                word[j] = (q, w)
+                j += 1
+            else
+                deleteat!(word, j)
+                j = 1
+                m -= 1
             end
         else
-            append!(word, view(x, j:j1))
-            push!(word, qv)
+            insert!(word, j, qv)
+            j += 1
+            m += 1
         end
-
-        j = j1 + 1
-        k += 1
     end
-
-    append!(word, view(x, j:m))
 
     return (coeff, word)
 end
