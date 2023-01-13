@@ -4,11 +4,12 @@ struct Monomial
     word::OpVector
 end
 
+Id_word = OpVector()
+Id = Monomial(Id_word)
+
 function Monomial(party, operator::Operator)
     return Monomial([(party_vec(party), [operator])])
 end
-
-Id = Monomial([])
 
 isidentity(m::Monomial) = isempty(m)
 
@@ -171,58 +172,67 @@ function swap_or_join(u::PartyVec, v::PartyVec)
     return parties_isect(u, v, k0, k0, m, n) ? :leave : :swap
 end
 
-function insert_at(x::OpVector, j0::Int, m::Int, q::PartyVec)
-    for j in m:-1:j0
-        p = x[j][1]
+function insert_at(p::PartyVec, y::OpVector, n::Int)
+    for k in 1:n
+        q = y[k][1]
         result = swap_or_join(p, q)
 
         if result === :join
-            return (j, :join)
+            return (k, :join)
         elseif result === :leave
-            return (j+1, :leave)
+            return (k, :leave)
         end
     end
 
-    return (j0, :leave)
+    return (n+1, :leave)
 end
 
-function join_words(x::OpVector, y::OpVector)
-    coeff = 1
-
+function join_words(x::OpVector,
+                    y::OpVector=Id_word,
+                    conj_x::Bool=false)
     if (m = length(x)) == 0
-        return (coeff, y)
-    elseif (n = length(y)) == 0
-        return (coeff, x)
+        return (1, y)
+    elseif ((n = length(y)) == 0) && (conj_x == false)
+        return (1, x)
     end
 
-    word = copy(x)
-    j = 1
+    coeff = 1
+    word = copy(y)
+    k = n
 
-    for (k, qv) in enumerate(y)
-        (q, v) = qv
-        (j, action) = insert_at(word, j, m, q)
+    if conj_x
+        cx = ((p, map(conj, Iterators.reverse(ops)))
+              for (p, ops) in x)
+        enum_word = enumerate(cx)
+    else
+        enum_word = Iterators.reverse(enumerate(x))
+    end
+    
+    for (j, pu) in enum_word
+        (p, u) = pu
+        (k, action) = insert_at(p, word, k)
 
         if action === :join
-            (c, w) = join_ops(word[j][2], v)
+            (c, w) = join_ops(u, word[k][2])
 
             if iszero(c)
-                return (0, OpVector[])
+                return (0, Id_word)
             end
 
             coeff *= c
 
             if !isempty(w)
-                word[j] = (q, w)
-                j += 1
+                word[k] = (p, w)
+                k -= 1
             else
-                deleteat!(word, j)
-                j = 1
-                m -= 1
+                deleteat!(word, k)
+                n -= 1
+                k = n
             end
         else
-            insert!(word, j, qv)
-            j += 1
-            m += 1
+            insert!(word, k, pu)
+            k -= 1
+            n += 1
         end
     end
 
@@ -240,11 +250,9 @@ end
 
 
 
-function word_adjoint(w::OpVector)
-    
-end
+word_adjoint(w::OpVector) = join_words(w, Id_word, true)
 
-Base.adjoint(m::Monomial) = Monomial(word_adjoint(m.word))
+Base.adjoint(m::Monomial) = Monomial(word_adjoint(m.word)[2])
 
 Base.conj(m::Monomial) = Base.adjoint(m::Monomial)
 
