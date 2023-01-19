@@ -56,6 +56,81 @@ Base.:(==)(x::Monomial, y::Number) = (y == 1) && isempty(x)
 
 Base.:(==)(x::Monomial, y::Monomial) = (x.word == y.word)
 
+
+
+function isless_samelen(x::OpVector,
+                        y::OpVector,
+                        offset_x::Int=0,
+                        offset_y::Int=0,
+                        len::Int=length(x))
+    if iszero(len)
+        return false
+    end
+
+    j = 1 + (offset_x % len)
+    (p, u) = x[j]
+
+    k = 1 + (offset_y % len)
+    (q, v) = y[k]
+
+    if (p != q)
+        return (p < q)
+    end
+
+    mu = length(u)
+    iu = 1
+    ou = u[iu]
+
+    mv = length(v)
+    iv = 1
+    ov = v[iv]
+
+    while true
+        if ou != ov
+            return ou < ov
+        end
+
+        if iu < mu
+            if iv < mv
+                iu += 1
+                ou = u[iu]
+                iv += 1
+                ov = v[iv]
+            else
+                k = 1 + (k - 1 + offset_y) % len
+                q = y[k][1]
+                return p < q
+            end
+        else
+            j = 1 + (j - 1 + offset_x % len)
+
+            if iv < mv
+                p = x[j][1]
+                return p < q
+            elseif j <= len
+                (p, u) = x[j]
+                
+                k = 1 + (k - 1 + offset_y) % len
+                (q, v) = y[k]
+
+                if p != q
+                    return p < q
+                end
+
+                mu = length(u)
+                iu = 1
+                ou = u[iu]
+
+                mv = length(v)
+                iv = 1
+                ov = v[iv]
+            else
+                return false
+            end
+        end
+    end
+end
+
 function Base.isless(x::Monomial, y::Monomial)
     ox, oy = degree(x), degree(y)
 
@@ -63,25 +138,7 @@ function Base.isless(x::Monomial, y::Monomial)
         return ox < oy
     end
 
-    for ((p1, ops1), (p2, ops2)) in zip(x, y)
-        if p1 != p2
-            return p1 < p2
-        end
-
-        l1, l2 = length(ops1), length(ops2)
-
-        if l1 != l2
-            return l1 > l2
-        end
-
-        for (o1, o2) in zip(ops1, ops2)
-            if o1 != o2
-                return o1 < o2
-            end
-        end
-    end
-
-    return false
+    return isless_samelen(x.word, y.word, 0, ox)
 end
 
 
@@ -114,7 +171,7 @@ end
 
 """
 Test if two party vecs have any parties in common, optionally starting from
-given indices j0 and k0.
+given indices j and k.
 """
 function parties_isect(u::PartyVec,
                        v::PartyVec,
@@ -268,18 +325,125 @@ end
 Base.conj(m::Monomial) = Monomial(word_conj(m.word))
 Base.adjoint(m::Monomial) = Monomial(word_conj(m.word))
 
-
-
-function ctrace(m::Monomial)
-    coeff = 1
-
-    pcops = [(p, trace(ops)) for (p, ops) in m.word]
-
-    for (_, (c, _)) in pcops
-        coeff = rmul(coeff, c)
+function parties_isect(p::Set{Int}, q::PartyVec)
+    for k in q
+        if k in p
+            return true
+        end
     end
 
-    m = Monomial([(p, ops) for (p, (_, ops)) in pcops])
+    return false
+end
 
-    return (coeff == 1) ? m : (coeff, m)
+function isect_or_equal(p::PartyVec, q::PartyVec)
+    if p == q
+        return :equal
+    elseif parties_isect(p, q)
+        return :isect
+    else
+        return :disjoint
+    end
+end
+
+function cjoin_or_leave(p::PartyVec, j::Int, word::OpVector, n::Int)
+    k = n
+
+    while k > j
+        q = word[k][1]
+
+        result = isect_or_equal(p, q)
+
+        if result === :equal
+            return (k, :join)
+        elseif result === :isect
+            return (k, :leave)
+        end
+
+        k -= 1
+    end
+
+    return (j, :join)
+end
+
+function min_party_cycle(word::OpVector, m=length(word))
+    if m < 2
+        return word
+    end
+
+    off_min = 0
+
+    for off in 1:(m-1)
+        if isless_samelen(word, word, off, off_min, m)
+            off_min = off
+        end
+    end
+    
+    head = view(word, 1:off_min)
+    tail = view(word, (off_min+1):m)
+
+    return vcat(tail, head)
+end
+
+function ctrace(word::OpVector)
+    coeff = 1
+    word = copy(word)
+
+    n = length(word)
+    j = 1
+    parties = Set{Int}()
+
+    while j <= n
+        (p, u) = word[j]
+
+        if parties_isect(parties, p)
+            j += 1
+            continue
+        end
+
+        (k, result) = cjoin_or_leave(p, j, word, n)
+
+        if result === :join
+            if j == k
+                (c, w) = trace(u)
+
+                if c == 0
+                    return (0, Id_word)
+                end
+
+                coeff *= c
+                word[j] = (p, w)
+                j += 1
+                parties = union!(parties, p)
+            else
+                (c, w) = join_ops(word[k][2], u)
+
+                if c == 0
+                    return (0, Id_word)
+                end
+
+                coeff *= c
+                deleteat!(word, k)
+                n -= 1
+
+                if isempty(w)
+                    deleteat!(word, j)
+                    n -= 1
+                else
+                    word[j] = (p, w)
+                    j += 1
+                    parties = union!(parties, p)
+                end
+            end
+        else
+            j += 1
+            parties = union!(parties, p)
+        end
+    end
+
+    return (coeff, min_party_cycle(word, n))
+end
+
+function ctrace(m::Monomial)
+    (coeff, word) = ctrace(m.word)
+    return (coeff, Monomial(word))
 end

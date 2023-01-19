@@ -341,14 +341,8 @@ end
 
 
 function trace(m::Monomial)
-    result = ctrace(m)
-
-    if result isa Tuple
-        (c, tm) = result
-        return Polynomial(c, tm)
-    else
-        return result
-    end
+    (c, tm) = ctrace(m)
+    return (c == 1) ? tm : Polynomial(c, tm)
 end
 
 trace(p::Polynomial) = psum(c*trace(m) for (c, m) in p)
