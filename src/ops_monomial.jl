@@ -67,11 +67,11 @@ function isless_samelen(x::OpVector,
         return false
     end
 
-    j = 0;
+    j = 0
     jc = 1 + (j + offset_x) % len
     (p, u) = x[jc]
 
-    k = 0;
+    k = 0
     kc = 1 + (k + offset_y) % len
     (q, v) = y[kc]
 
