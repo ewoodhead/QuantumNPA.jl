@@ -67,11 +67,13 @@ function isless_samelen(x::OpVector,
         return false
     end
 
-    j = 1 + (offset_x % len)
-    (p, u) = x[j]
+    j = 0;
+    jc = 1 + (j + offset_x) % len
+    (p, u) = x[jc]
 
-    k = 1 + (offset_y % len)
-    (q, v) = y[k]
+    k = 0;
+    kc = 1 + (k + offset_y) % len
+    (q, v) = y[kc]
 
     if (p != q)
         return (p < q)
@@ -97,21 +99,24 @@ function isless_samelen(x::OpVector,
                 iv += 1
                 ov = v[iv]
             else
-                k = 1 + (k - 1 + offset_y) % len
-                q = y[k][1]
+                k += 1
+                kc = 1 + (k + offset_y) % len
+                q = y[kc][1]
                 return p < q
             end
         else
-            j = 1 + (j - 1 + offset_x % len)
+            j += 1
+            jc = 1 + (j + offset_x) % len
 
             if iv < mv
-                p = x[j][1]
+                p = x[jc][1]
                 return p < q
-            elseif j <= len
-                (p, u) = x[j]
-                
-                k = 1 + (k - 1 + offset_y) % len
-                (q, v) = y[k]
+            elseif j < len
+                (p, u) = x[jc]
+
+                k += 1
+                kc = 1 + (k + offset_y) % len
+                (q, v) = y[kc]
 
                 if p != q
                     return p < q
