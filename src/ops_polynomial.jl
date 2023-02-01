@@ -325,7 +325,7 @@ function Base.conj(x::Polynomial)
 end
 
 function Base.adjoint(x::Polynomial)
-    return Polynomial((adjoint(m), adjoint(c)) for (c, m) in x)
+    return Polynomial((adjoint(c), adjoint(m)) for (c, m) in x)
 end
 
 Base.zero(::Polynomial) = Polynomial()
