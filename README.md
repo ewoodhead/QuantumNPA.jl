@@ -327,7 +327,10 @@ unitary(party, index, conj=false)
 zbff(party, index, conj=false)
 ```
 In these:
-- Party numbers start from 1.
+- `party` is either a number or a vector of numbers in strictly increasing
+  order, e.g., `[1, 3, 4]`. The latter makes it possible to construct
+  operators associated to more than one party. Valid party numbers are
+  strictly positive integers.
 - The parameters called `input`, `output`, and `index` can be either integers
   or arrays or ranges of integers.
 - The parameter `conj` is optional and defaults to `false` if it is omitted.
@@ -385,15 +388,37 @@ julia> dichotomic(1, 1) - (2*projector(1, 1, 1) - Id)
 Id + A1 - 2 PA1|1
 ```
 
+Finally, note that operators are objects that can be manipulated in the same
+sorts of ways as other types of objects in Julia, such as putting them in
+arrays or other data structures. For example, `dichotomic(p, 1:n)` returns a
+one-dimensional array of dichotomic operators, which we can then use in
+vector expressions such as:
+```julia
+julia> A = dichotomic(1, 1:2)
+2-element Vector{Monomial}:
+ A1
+ A2
+
+julia> B = dichotomic(2, 1:2)
+2-element Vector{Monomial}:
+ B1
+ B2
+
+julia> M = [1 1; 1 -1]
+2×2 Matrix{Int64}:
+ 1   1
+ 1  -1
+
+julia> A'*M*B
+A1 B1 + A1 B2 + A2 B1 - A2 B2
+```
+
 
 ## Analysing, modifying, and deconstructing operators
 
 Monomials and polynomials are objects of different types, although a
 polynomial consisting of a single monomial multiplied by 1 is printed the
-same as a monomial:
-```julia
-julia> P = projector(1, 1, 1)
-PA1|1
+same as a monomial: ```julia julia> P = projector(1, 1, 1) PA1|1
 
 julia> typeof(P)
 Monomial
@@ -674,17 +699,21 @@ julia> R
 PA1|1 PB2|2 ZE1 ZE2
 
 julia> R.word
-3-element Array{Tuple{Integer,Array{Operator,1}},1}:
- (1, [P1|1])
- (2, [P2|2])
- (5, [Z1, Z2])
+3-element Vector{Tuple{Vector{Int64}, Vector{Main.QuantumNPA.Operator}}}:
+ ([1], [P1|1])
+ ([2], [P2|2])
+ ([5], [Z1, Z2])
 ```
 It is assumed that:
 
 1. parties are numbered starting from 1,
-2. the party numbers are in strictly increasing order `p1 < p2 < p3 ...`, and
-3. only parties that have at least one operator associated with them appear
+2. the numbers in party vectors are in strictly increasing order,
+3. the party vectors are in lexicographical order `p1 < p2 < p3 ...`, and
+4. only parties that have at least one operator associated with them appear
    in the list.
+
+The monomial multiplication function is responsible for returning monomials
+in this reduced form assuming its inputs are
 
 This (mainly the definition of `Monomial` and the function
 `Base.:*(x::Monomial, y::Monomial)`) is the part of the code that would have
