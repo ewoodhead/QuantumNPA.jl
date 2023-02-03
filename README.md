@@ -53,7 +53,7 @@ julia> npa_max(0.3 * A1 + 0.6 * A1*(B1 + B2) + A2*(B1 - B2), "1 + A B + A^2 B")
 ```
 
 You can specify both equality and inequality arguments using the `eq` and
-`ge` keyword arguments. These should be list of operators whose expectation
+`ge` keyword arguments. These should be lists of operators whose expectation
 values you want, respectively, to set to and lower bound by zero. For
 example, to maximise `<A1>` subject to `<A1*(B1 + B2)> = 1.4` and `<A2*(B1 -
 B2)> = 1.4`:
@@ -333,7 +333,7 @@ In these:
 - The parameter `conj` is optional and defaults to `false` if it is omitted.
 - For projectors, if you give a range of inputs you can also give a value for
   a fourth parameter `full`, which defaults to `false`. Setting it to `true`
-  indicates that you indend for the range of outputs to represent the full
+  indicates that you intend for the range of outputs to represent the full
   set of measurement outcomes. In that case, in place of the last projector
   you are given the identity minus the sum of all the preceding projectors.
 
@@ -350,7 +350,7 @@ julia> projector(1, 1:3, 1:2, full=true)
  PA2|1               PA2|2
  Id - PA1|1 - PA2|1  Id - PA1|2 - PA2|2
 
-julia> julia> zbff(1, 1:3)
+julia> zbff(1, 1:3)
 3-element Array{Monomial,1}:
  ZA1
  ZA2
@@ -487,12 +487,11 @@ Polynomials will also act as iterators over pairs of their nonzero
 coefficients and monomials in contexts where an iterator is expected:
 ```julia
 julia> collect(S)
-4-element Array{Any,1}:
-4-element Array{Any,1}:
+4-element Vector{Any}:
+ Pair{Number,Monomial}(-1, A2 B2)
  Pair{Number,Monomial}(1, A1 B2)
  Pair{Number,Monomial}(1, A2 B1)
  Pair{Number,Monomial}(1, A1 B1)
- Pair{Number,Monomial}(-1, A2 B2)
 
 julia> for (c, m) in S
            @printf "%s  =>  %2d\n" m c
@@ -545,10 +544,10 @@ Set{Monomial} with 5 elements:
   B2
   E1
 ```
-`operators()` can optionally take a keyword argument `by_parties` which is
-set to `false` by default. Setting it to `true` groups the level-one
-operators by party and returns a dictionary of the parties and operators
-associated to those parties:
+`operators()` can optionally take a keyword argument `by_party` which is set
+to `false` by default. Setting it to `true` groups the level-one operators by
+party and returns a dictionary of the parties and operators associated to
+those parties:
 ```julia
 julia> operators(objective, constraints, by_party=true)
 Dict{Integer,Set{Monomial}} with 3 entries:
@@ -556,8 +555,8 @@ Dict{Integer,Set{Monomial}} with 3 entries:
   5 => Set(Monomial[E1])
   1 => Set(Monomial[A2, A1])
 ```
-This should be useful if we want to determine all the monomials in a problem
-at NPA levels like "1 + A B + A E + B E"...
+This is useful for constructing operators at intermediate levels of the
+NPA hierarchy like "1 + A B + A E + B E".
 
 
 ## NPA example
