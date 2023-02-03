@@ -692,7 +692,7 @@ type. At the moment it just contains a list
 ```julia
 word = [(p1, ops1), (p2, ops2), ...]
 ```
-of parties `p1`, `p2`, etc. and lists of operators `ops1`, `ops2`,
+of party vectors `p1`, `p2`, etc. and lists of operators `ops1`, `ops2`,
 etc. associated to those parties. For example,
 ```julia
 julia> R
@@ -708,12 +708,14 @@ It is assumed that:
 
 1. parties are numbered starting from 1,
 2. the numbers in party vectors are in strictly increasing order,
-3. the party vectors are in lexicographical order `p1 < p2 < p3 ...`, and
+3. the party vectors are in lexicographical order `p1 < p2 < p3 ...` as much
+   as commutation relations between them allow (parties commute if the
+   intersection of their party vectors is empty), and
 4. only parties that have at least one operator associated with them appear
    in the list.
 
 The monomial multiplication function is responsible for returning monomials
-in this reduced form assuming its inputs are
+in this reduced form assuming its inputs are already in reduced form.
 
 This (mainly the definition of `Monomial` and the function
 `Base.:*(x::Monomial, y::Monomial)`) is the part of the code that would have
