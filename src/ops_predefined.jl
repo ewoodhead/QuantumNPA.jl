@@ -11,8 +11,9 @@ function parse_dichotomic(expr)
         return :($(esc(expr)) = dichotomic($party, $(parse(Int, input))))
     else
         name = expr.args[1]
+        party = string(name)
         range = expr.args[2]
-        return :($(esc(name)) = dichotomic($(QuoteNode(name)), $range))
+        return :($(esc(name)) = dichotomic($party, $range))
     end
 end
 

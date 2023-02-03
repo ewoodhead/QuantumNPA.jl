@@ -28,9 +28,9 @@ For example:
 
   parse_level_term("2")           =>  2
 
-  parse_level_term("A^2 B B E")   =>  Dict(1 => 2,
-                                           2 => 2,
-                                           5 => 1)
+  parse_level_term("A^2 B B E")   =>  Dict([1] => 2,
+                                           [2] => 2,
+                                           [5] => 1)
 """
 function parse_level_term(term)
     term = strip(term)
@@ -39,7 +39,7 @@ function parse_level_term(term)
         return parse(Int, term)
     end
 
-    contribs = Dict{Int,Int}()
+    contribs = Dict{PartyVec,Int}()
 
     for party_str in split(term)
         if '^' in party_str
@@ -49,7 +49,7 @@ function parse_level_term(term)
             power = 1
         end
 
-        party = party_num(party_str)
+        party = party_vec(party_str)
 
         if haskey(contribs, party)
             contribs[party] += power
@@ -65,7 +65,7 @@ end
 Return a set of operators corresponding to a particular level term, such as
 "1" or "A B".
 """
-function make_term(term, ops::Dict{Integer,Set{Monomial}})
+function make_term(term, ops::Dict{PartyVec,Set{Monomial}})
     level = parse_level_term(term)
 
     if level isa Integer
@@ -112,7 +112,7 @@ function ops_at_level(source, n::AbstractString)
     return ops_at_level(ops, n)
 end
 
-function ops_at_level(ops::Dict{Integer,Set{Monomial}}, n::AbstractString)
+function ops_at_level(ops::Dict{PartyVec,Set{Monomial}}, n::AbstractString)
     result = Set{Monomial}()
 
     for term in split(n, '+')
