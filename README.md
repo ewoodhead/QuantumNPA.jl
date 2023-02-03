@@ -715,7 +715,7 @@ There are three main types of operator defined in the code. They are:
 name for several concrete types that, throughout the code, are assumed to
 have certain common properties making them to some extent interchangeable; in
 particular, they can be passed as arguments to certain functions such as
-`conj()` and `Base.(*)`. The concrete subtypes, such as `Dichotomic`, are
+`conj()` and `Base.:*`. The concrete subtypes, such as `Dichotomic`, are
 structs representing the different types of operators supported. What fields
 they have depends on the type. For example, `Dichotomic` objects have one
 field `index` for the index, `Projector`s have two for the output and input,
