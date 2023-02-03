@@ -695,6 +695,16 @@ This last section gives some details about how operators are
 implemented. This is mainly of interest to people who want to better
 understand what the code does and how it works or want to modify it.
 
+The basic idea behind this whole library is that the NPA hierarchy method
+itself is pretty straightforward if the types of operators you need are
+supported. One then just has to compute all the operator products appearing
+in the upper triangular part of the moment matrix and check for relations
+between the results that translate to constraints on the moment matrix. So
+the main thing this library aims to do is add support to Julia for doing
+arithmetic and automatically simplifying products of certain types of
+operators commonly encountered in quantum optimisation problems that can be
+handled with the NPA hierarchy.
+
 There are three main types of operator defined in the code. They are:
 - The abstract `Operator` type, defined in `src/ops_primitive.jl`, which has
   several concrete subtypes (`Dichotomic`, etc.) defined in
@@ -853,35 +863,72 @@ julia> join_ops(p, q)
 
 ### `Monomial`
 
-
-Associating operators in groups to parties is handled by the `Monomial`
-type. At the moment it just contains a list
+`Monomial`s are the most basic type of operator that are meant to be created
+and manipulated in normal use of QuantumNPA. They represent products of
+operators grouped into different parties. They are structs whose only field,
+`word`, contains a vector `[(p1, ops1), (p2, ops2), ...]` of pairs of party
+vectors `p1`, `p2`, etc. and vectors of operators `ops1`, `ops2` (of the type
+used by the `join_ops()` function described above) associated to those
+parties. Thus, we can look at the contents of a `Monomial` by accessing its
+`word` field:
 ```julia
-word = [(p1, ops1), (p2, ops2), ...]
+julia> (A1, A2) = dichotomic(1, 1:2);
+
+julia> PB11 = projector(2, 1, 1);
+
+julia> (UE1, UE2) = unitary(5, 1:2);
+
+julia> M = A1*A2*PB11*UE1*UE2
+A1 A2 PB1|1 UE1 UE2
+
+julia> M.word
+3-element Vector{Tuple{Vector{Int64}, Vector{Operator}}}:
+ ([1], [/1, /2])
+ ([2], [P1|1])
+ ([5], [U1, U2])
 ```
-of party vectors `p1`, `p2`, etc. and lists of operators `ops1`, `ops2`,
-etc. associated to those parties. For example,
-```julia
-julia> R
-PA1|1 PB2|2 ZE1 ZE2
 
-julia> R.word
-3-element Vector{Tuple{Vector{Int64}, Vector{Main.QuantumNPA.Operator}}}:
- ([1], [P1|1])
- ([2], [P2|2])
- ([5], [Z1, Z2])
-```
-It is assumed that:
+Party vectors (on the left of the example above) are vectors of integers
+representing which party or parties a group of operators are associated
+to. Valid party vectors are vectors of integers, such as `[1, 2, 4]`, in
+which all the integers are in strictly increasing order and the first (and
+smallest) integer is at least one. One party vector `p` is considered to
+lexicographically precede another `q` if `p < q` returns `true`. Often, they
+will just contain a single party, e.g. , `[1]`, but this isn't
+required. Operators associated to different parties are taken to commute if
+the intersection of the party vectors is empty. Thus `[1]` commutes with
+`[2]` and `[1,3]` commutes with `[2,4]`, but `[1,2]` does not commute with,
+for example, `[2]` or `[2,3]`
 
-1. parties are numbered starting from 1,
-2. the numbers in party vectors are in strictly increasing order,
-3. the party vectors are in lexicographical order `p1 < p2 < p3 ...` as much
-   as commutation relations between them allow (parties commute if the
-   intersection of their party vectors is empty), and
-4. only parties that have at least one operator associated with them appear
-   in the list.
+`Monomial` objects are meant to represent monomials in a certain reduced
+canonical form. A monomial is considered in correctly reduced form if:
 
-A few key functions, namely multiplication, `conj()`, and `adjoint()`, are
+1. The party vectors are valid and appear in lexicographic order as much as
+   commutation relations between them allow. This basically means that if a
+   party vector `p` is immediately followed by a party vector `q` then at
+   least one of `p < q` and `intersect(p, q) != []` should be `true`.
+
+2. The vectors of operators are nonempty and reduced as much as possible. For
+   example, a valid vector should not contain the same dichotomic operator
+   twice, or a unitary and its conjucate, directly following one another.
+
+A few key functions, particularly `Base.:*()`, `conj()`, and `adjoint()`, are
 responsible for maintaining these conventions, i.e., they should return
-monomials in the above-described reduced form assuming their inputs are in
-reduced form.
+monomials in the above-described canonical form assuming their inputs are in
+canonical form. So the recommended way to build monomials in most cases is to
+start with monomials containing a single operator and multiply them to
+construct longer monomials. A monomial containing just one operator can be
+created by calling the `Monomial` function with a party vector and operator
+as arguments, e.g.,
+```julia
+julia> M = Monomial([1], Dichotomic(2))
+A2
+
+julia> M.word
+1-element Vector{Tuple{Vector{Int64}, Vector{Operator}}}:
+ ([1], [/2])
+```
+It is also possible to construct a `Monomial` by calling `Monomial()` with an
+array of pairs of party vectors and vectors of operators as an argument, but
+this way isn't very readable and makes it easy to generate invalid monomials,
+and so should be avoided.
