@@ -426,7 +426,10 @@ A1 B1 + A1 B2 + A2 B1 - A2 B2
 
 Monomials and polynomials are objects of different types, although a
 polynomial consisting of a single monomial multiplied by 1 is printed the
-same as a monomial: ```julia julia> P = projector(1, 1, 1) PA1|1
+same as a monomial:
+```julia
+julia> P = projector(1, 1, 1)
+PA1|1
 
 julia> typeof(P)
 Monomial
@@ -689,7 +692,7 @@ ERROR: MethodError: no method matching isless(::Monomial, ::Polynomial)
 
 
 
-## Implementation overview
+## Comments on implementation
 
 This last section gives some details about how operators are
 implemented. This is mainly of interest to people who want to better
@@ -932,3 +935,75 @@ It is also possible to construct a `Monomial` by calling `Monomial()` with an
 array of pairs of party vectors and vectors of operators as an argument, but
 this way isn't very readable and makes it easy to generate invalid monomials,
 and so should be avoided.
+
+
+
+### `Polynomial`
+
+`Polynomial` objects represent linear combinations of monomials, such as
+`A1 + 2 A2 B1`. They have a single field, `terms`, which is a dictionary
+mapping monomials to coefficients:
+```julia
+julia> P = 3*Id + 2*A1*A2
+3 Id + 2 A1 A2
+
+julia> P.terms
+Dict{Monomial, Number} with 2 entries:
+  Id    => 3
+  A1 A2 => 2
+```
+Only terms with nonzero coeffients should be stored. The arithmetic functions
+and indexed assignment (`setindex!()`, which makes `p[p] = c` work) don't
+create or remove pairs for which the coefficient is zero. So setting a term
+to zero deletes it from the dictionary:
+```julia
+julia> P
+3 Id + 2 A1 A2
+
+julia> P[A1*A2] = 0
+0
+
+julia> P
+3 Id
+
+julia> P.terms
+Dict{Monomial, Number} with 1 entry:
+  Id => 3
+```
+The zero polynomial is represented by an empty dictionary.
+
+There are a few different versions of the `Polynomial()` constructor. The
+basic one takes a dictionary mapping monomials to coefficients and simply
+uses that as the `terms` field. This is only meant to be used internally, and
+with care, since it can be used to create "invalid" polynomials that break
+assumptions made elsewhere in the library:
+```julia
+julia> Q = Polynomial(Dict(A1*A2 => 0))
+0 A1 A2
+
+julia> Q == 0
+false
+```
+
+Other versions create a polynomial out of a number, a monomial, a number and
+monomial, and a polynomial:
+```julia
+julia> Polynomial(3)
+3 Id
+
+julia> Polynomial(A1)
+A1
+
+julia> Polynomial(3, A1)
+3 A1
+
+julia> Polynomial(P)
+3 Id
+```
+As mentioned above, the latter just returns the polynomial given as input.
+The third one is used to define multiplication of a number by a monomial in
+`src/ops_polynomial.jl`:
+```julia
+Base.:*(x::Number, y::Monomial) = Polynomial(x, y)
+Base.:*(x::Monomial, y::Number) = Polynomial(y, x)
+```
