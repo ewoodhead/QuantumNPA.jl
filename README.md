@@ -334,10 +334,16 @@ unitary(party, index, conj=false)
 zbff(party, index, conj=false)
 ```
 In these:
-- `party` is either a number or a vector of numbers in strictly increasing
-  order, e.g., `[1, 3, 4]`. The latter makes it possible to construct
-  operators associated to more than one party. Valid party numbers are
-  strictly positive integers.
+- `party` is either:
+  - a strictly positive integer, e.g., `1`,
+  - a vector of strictly positive integers in strictly increasing order,
+    e.g., `[1, 3, 4]`, representing an operator associated to more than one
+    party,
+  - an uppercase alphabetic character, e.g. `'A'`, or
+  - a string of alphabetic characters corresponding to parties in increasing
+    order separated by underscores, e.g., `"A"` (same as party number `1`),
+    `"AB"` (party `28`), `"A_B"` (party vector `[1, 2]`), `"A_BC"` (party
+    vector `[1, 55]`).
 - The parameters called `input`, `output`, and `index` can be either integers
   or arrays or ranges of integers.
 - The parameter `conj` is optional and defaults to `false` if it is omitted.
@@ -726,14 +732,14 @@ There are three main types of operator defined in the code. They are:
 
 `Operator` is an abstract type. This essentially means it is a collective
 name for several concrete types that, throughout the code, are assumed to
-have certain common properties making them to some extent interchangeable; in
-particular, they can be passed as arguments to certain functions such as
-`conj()` and `Base.:*`. The concrete subtypes, such as `Dichotomic`, are
-structs representing the different types of operators supported. What fields
-they have depends on the type. For example, `Dichotomic` objects have one
-field `index` for the index, `Projector`s have two for the output and input,
-and unitaries have an integer `index` and boolean `conj` field tracking
-whether they are conjugated or not.
+have certain common properties making them interchangeable to a significant
+extent. In particular, they can be passed as arguments to certain functions
+such as `conj()` and `Base.:*`. The concrete subtypes, such as `Dichotomic`,
+are structs representing the different types of operators supported. What
+fields they have depends on the type. For example, `Dichotomic` objects have
+one field `index` for the index, `Projector`s have two for the output and
+input, and unitaries have an integer `index` and boolean `conj` field
+tracking whether they are conjugated or not.
 
 Objects of the different basic operator types are structs containing data
 about them. They are created by calling their constructors, which are
@@ -814,9 +820,9 @@ Base.:*(x::Operator, y::Operator) = (1, [x, y])
 ```
 This just means that the default rule is to concatenate operators that are
 multiplied together, represented by the list `[x, y]`. The number `1` above
-is a multiplicative coefficient; this allows for the possibility of scaling
+is a multiplicative coefficient. This allows for the possibility of scaling
 factors appearing in multiplications in the future (such as something like an
-unnormalised projector that squares to a multiple of itself); currently there
+unnormalised projector that squares to a multiple of itself). Currently there
 are no such operators defined in the codebase and the coefficient is always
 zero or one.
 
