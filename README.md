@@ -984,10 +984,12 @@ julia> Q = Polynomial(Dict(A1*A2 => 0))
 julia> Q == 0
 false
 ```
-
-Other versions create a polynomial out of a number, a monomial, a number and
-monomial, and a polynomial:
+Other versions create a polynomial with no input argument (returns the zero
+polynomial), or a number, a monomial, a number and monomial, or a polynomial:
 ```julia
+julia> Polynomial()
+0
+
 julia> Polynomial(3)
 3 Id
 

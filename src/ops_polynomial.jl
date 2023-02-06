@@ -305,7 +305,7 @@ comm(x, y) = x*y - y*x
 
 acomm(x::Number, y::Number) = 2*rmul(x, y)
 acomm(x::Number, y::Monomial) = Polynomial(2*x, y)
-acomm(x::Monomial, y::Number) = Polynomail(2*y, x)
+acomm(x::Monomial, y::Number) = Polynomial(2*y, x)
 acomm(x, y) = x*y + y*x
 
 
