@@ -344,8 +344,9 @@ In these:
     order separated by underscores, e.g., `"A"` (same as party number `1`),
     `"AB"` (party `28`), `"A_B"` (party vector `[1, 2]`), `"A_BC"` (party
     vector `[1, 55]`).
-  Parties are always converted to and stored internally in monomials in the
-  vector-of-integers form. Operators associated to different parties are
+
+  Parties are always converted to and stored internally inside monomials in
+  the vector-of-integers form. Operators associated to different parties are
   considered to commute if and only if the intersection of the party vectors
   is empty.
 - The parameters called `input`, `output`, and `index` can be either integers
@@ -356,6 +357,32 @@ In these:
   indicates that you intend for the range of outputs to represent the full
   set of measurement outcomes. In that case, in place of the last projector
   you are given the identity minus the sum of all the preceding projectors.
+
+Party labels go from A to Z for parties 1 to 26, then AA to ZZ starting from
+party 27, then AAA to ZZZ, and so on. Because of this, be aware that it is
+possible for different operators to end up being printed the same way:
+```julia
+julia> x = unitary(1, 3)
+UA3
+
+julia> y = dichotomic(547, 3)
+UA3
+
+julia> y*y
+Id
+
+julia> x*x
+UA3 UA3
+
+julia> conj(x)*x
+Id
+
+julia> x*y
+UA3 UA3
+
+julia> conj(x)*y
+UA*3 UA3
+```
 
 A few examples illustrating different ways of calling the `projector()`
 function:
@@ -379,8 +406,7 @@ julia> zbff(1, 1:3)
 ```
 
 Examples illustrating commutation relations with dichotomic operators:
-```julia
-julia> A1, A2 = dichotomic(1, 1:2);
+```julia julia> A1, A2 = dichotomic(1, 1:2);
 
 julia> B1, B2 = dichotomic(2, 1:2);
 
