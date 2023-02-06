@@ -344,6 +344,10 @@ In these:
     order separated by underscores, e.g., `"A"` (same as party number `1`),
     `"AB"` (party `28`), `"A_B"` (party vector `[1, 2]`), `"A_BC"` (party
     vector `[1, 55]`).
+  Parties are always converted to and stored internally in monomials in the
+  vector-of-integers form. Operators associated to different parties are
+  considered to commute if and only if the intersection of the party vectors
+  is empty.
 - The parameters called `input`, `output`, and `index` can be either integers
   or arrays or ranges of integers.
 - The parameter `conj` is optional and defaults to `false` if it is omitted.
@@ -353,7 +357,8 @@ In these:
   set of measurement outcomes. In that case, in place of the last projector
   you are given the identity minus the sum of all the preceding projectors.
 
-Couple of examples:
+A few examples illustrating different ways of calling the `projector()`
+function:
 ```julia
 julia> projector(1, 1:2, 1:2)
 2×2 Array{Monomial,2}:
@@ -371,6 +376,45 @@ julia> zbff(1, 1:3)
  ZA1
  ZA2
  ZA3
+```
+
+Examples illustrating commutation relations with dichotomic operators:
+```julia
+julia> A1, A2 = dichotomic(1, 1:2);
+
+julia> B1, B2 = dichotomic(2, 1:2);
+
+julia> A_C1 = dichotomic([1,3], 1);
+
+julia> A1*B1
+A1 B1
+
+julia> B1*A1
+A1 B1
+
+julia> A1*A_C1
+A1 A_C1
+
+julia> A_C1*A1
+A_C1 A1
+
+julia> A1*B1*A_C1
+A1 A_C1 B1
+
+julia> A_C1*A1*B1
+A_C1 A1 B1
+
+julia> A_C1*B1*A1
+A_C1 A1 B1
+
+julia> B1*A_C1*A1
+A_C1 A1 B1
+
+julia> A1*B1*A_C1*A2*B2
+A1 A_C1 A2 B1 B2
+
+julia> A1*B1*A_C1*A1*B1
+A1 A_C1 A1
 ```
 
 I am working on writing macros to automatically create variables using
