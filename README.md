@@ -471,11 +471,11 @@ julia> dichotomic(1, 1) - (2*projector(1, 1, 1) - Id)
 Id + A1 - 2 PA1|1
 ```
 
-Finally, note that operators are objects that can be manipulated in the same
-sorts of ways as other types of objects in Julia, such as putting them in
-arrays or other data structures. For example, `dichotomic(p, 1:n)` returns a
-one-dimensional array of dichotomic operators, which we can then use in
-vector expressions such as:
+Finally, it may be worth stressing that operators are objects that can be
+manipulated in the same sorts of ways as other types of objects in Julia,
+such as putting them in arrays or other data structures. For example,
+`dichotomic(p, 1:n)` returns a one-dimensional array of dichotomic operators,
+which we can then use in vector expressions such as:
 ```julia
 julia> A = dichotomic(1, 1:2)
 2-element Vector{Monomial}:
@@ -505,19 +505,11 @@ julia> kron(A, B)
 julia> [1,1,1,-1]'*kron(A, B)
 A1 B1 + A1 B2 + A2 B1 - A2 B2
 
-julia> V = vcat([Id], A, B, kron(A, B))
-9-element Vector{Union{Monomial, Polynomial}}:
- Id
- A1
- A2
- B1
- B2
- A1 B1
- A1 B2
- A2 B1
- A2 B2
+julia> V = [Id; A; B; kron(A, B)]'
+1×9 adjoint(::Vector{Union{Monomial, Polynomial}}) with eltype Union{Monomial, Polynomial}:
+ Id  A1  A2  B1  B2  A1 B1  A1 B2  A2 B1  A2 B2
 
-julia> V*V'
+julia> V'*V
 9×9 Matrix{Monomial}:
  Id     A1        A2        B1        B2        …  A2 B1        A2 B2
  A1     Id        A1 A2     A1 B1     A1 B2        A1 A2 B1     A1 A2 B2
