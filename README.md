@@ -1003,7 +1003,7 @@ julia> Polynomial(P)
 3 Id
 ```
 As mentioned above, the latter just returns the polynomial given as input.
-The third one is used to define multiplication of a number by a monomial in
+The fourth one is used to define multiplication of a number by a monomial in
 `src/ops_polynomial.jl`:
 ```julia
 Base.:*(x::Number, y::Monomial) = Polynomial(x, y)
