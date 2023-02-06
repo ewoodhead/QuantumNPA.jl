@@ -494,6 +494,40 @@ julia> M = [1 1; 1 -1]
 
 julia> A'*M*B
 A1 B1 + A1 B2 + A2 B1 - A2 B2
+
+julia> kron(A, B)
+4-element Vector{Union{Monomial, Polynomial}}:
+ A1 B1
+ A1 B2
+ A2 B1
+ A2 B2
+ 
+julia> [1,1,1,-1]'*kron(A, B)
+A1 B1 + A1 B2 + A2 B1 - A2 B2
+
+julia> V = vcat([Id], A, B, kron(A, B))
+9-element Vector{Union{Monomial, Polynomial}}:
+ Id
+ A1
+ A2
+ B1
+ B2
+ A1 B1
+ A1 B2
+ A2 B1
+ A2 B2
+
+julia> V*V'
+9×9 Matrix{Monomial}:
+ Id     A1        A2        B1        B2        …  A2 B1        A2 B2
+ A1     Id        A1 A2     A1 B1     A1 B2        A1 A2 B1     A1 A2 B2
+ A2     A2 A1     Id        A2 B1     A2 B2        B1           B2
+ B1     A1 B1     A2 B1     Id        B1 B2        A2           A2 B1 B2
+ B2     A1 B2     A2 B2     B2 B1     Id           A2 B2 B1     A2
+ A1 B1  B1        A1 A2 B1  A1        A1 B1 B2  …  A1 A2        A1 A2 B1 B2
+ A1 B2  B2        A1 A2 B2  A1 B2 B1  A1           A1 A2 B2 B1  A1 A2
+ A2 B1  A2 A1 B1  B1        A2        A2 B1 B2     Id           B1 B2
+ A2 B2  A2 A1 B2  B2        A2 B2 B1  A2           B2 B1        Id
 ```
 
 
