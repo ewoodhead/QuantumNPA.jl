@@ -8,11 +8,15 @@ function sparse_sym_add!(matrix, i, j, val)
     end
 end
 
+function sparse_Nt(I, J, V, M, N)
+    return SparseMatrixCSC{Float64}{Int}(sparse(I, J, V, M, N))
+end
+
 function sparse_sym(N, i, j, val)
     if i == j
-        return sparse([i], [i], [val], N, N)
+        return sparse_Nt([i], [i], [val], N, N)
     else
-        return sparse([i, j], [j, i], [val, val], N, N)
+        return sparse_Nt([i, j], [j, i], [val, val], N, N)
     end
 end
 
@@ -93,30 +97,45 @@ function SparseArrays.dropzeros!(matrix::BlockDiagonal)
     return matrix
 end
 
+sp1x1(x) = (iszero(x)
+            ? spzeros(Float64, 1, 1)
+            : SparseMatrixCSC{Float64,Int}(sparse([1], [1], x)))
+
 """
 Generate the NPA relaxation for a given quantum optimisation problem (an
 operator expr whose expectation we want to maximise with the expectation
 values of the operators constraints set to zero).
 """
+
 function npa2sdp(expr,
-                 constraints,
-                 moments::Moments;
+                 level_or_moments;
+                 eq=[],
+                 ge=[],
                  f=identity)
+    if level_or_moments isa Moments
+        moments = level_or_moments
+    else
+        moments = npa_moments(ops_at_level([expr, eq, ge],
+                                           level_or_moments))
+    end
+    
     # Reduce constraints to canonical form
-
     expr = conj_min(expr; f=f)
-    constraints = linspace(map(m -> conj_min(m, f=f), constraints))
+    eq = linspace(map(m -> conj_min(m, f=f), eq))
+    ge = map(m -> conj_min(m, f=f), ge)
 
-    if haskey(constraints, Id)
-        @error "Contradiction Id = 0 in constraints."
+    if haskey(eq, Id)
+        @error "Contradiction Id = 0 in equality constraints."
     end
 
     # Reduce the objective expression, using constraints to eliminate
     # monomials
-    expr = reduce_expr(expr, constraints)
+    expr = reduce_expr(expr, eq)
     moments = deepcopy(moments)
 
-    for (m0, constraint) in constraints
+    # Reduce moments using equality constraints.
+    for (m0, constraint) in eq
+        constraint = copy(constraint)
         q = constraint[m0]
         constraint[m0] = 0
 
@@ -126,6 +145,16 @@ function npa2sdp(expr,
         for (c, m) in constraint
             moments[m] -= rdiv(c, q) * moment0
         end
+    end
+
+    # Reduce inequality constraints then absorb them into the moment matrix.
+    # Basically, take the coefficients in the inequalities and add them as
+    # 1x1 blocks to the moments.
+    ge = [reduce_expr(ineq, eq) for ineq in ge]
+
+    for (m, moment) in moments
+        append!(blocks(moment),
+                [sp1x1(ineq[m]) for ineq in ge])
     end
 
     # Remove any zero coefficients that might be stored explicitly in the
@@ -141,57 +170,6 @@ function npa2sdp(expr,
     return (expr, moments)
 end
 
-function npa2sdp(expr,
-                 constraints,
-                 level)
-    monomials = ops_at_level([expr, constraints], level)
-
-    return npa2sdp(expr,
-                   constraints,
-                   npa_moments(monomials))
-end
-
-npa2sdp(expr, lvl_or_constraints) = npa2sdp(expr, [], lvl_or_constraints)
-
-
-
-function SparseArrays.findnz(mat::BlockDiagonal)
-    base = 0
-
-    is = Int[]
-    js = Int[]
-    cs = []
-
-    for blk in blocks(mat)
-        (is1, js1, cs1) = findnz(blk)
-        append!(is, is1 .+ base)
-        append!(js, js1 .+ base)
-        append!(cs, cs1)
-        base += first(size(mat))
-    end
-
-    return (is, js, cs)
-end
-
-function firstnz(moment::BlockDiagonal)
-    base = 0
-
-    for blk in blocks(moment)
-        if !iszero(blk)
-            (i, j, c) = first((i, j, c)
-                              for (i, j, c) in zip(findnz(blk)...))
-            @assert !iszero(c)
-
-            if (i > j)
-                (i, j) = (j, i)
-            end
-            
-            return (i + base, j + base, c)
-        else
-            base += first(size(blk))
-        end
-    end
-end
 
 
 function bspzeros(bsizes)
@@ -216,7 +194,7 @@ if !@isdefined(default_solver)
     default_solver = SCS.Optimizer
 end
 
-function set_solver(solver)
+function set_solver!(solver)
     global default_solver = solver
 end
 
@@ -273,13 +251,14 @@ end
 
 
 
-function npa2jump(expr,
-                  constraints,
-                  level_or_moments;
+function npa2jump(expr, level_or_moments;
+                  eq=[],
+                  ge=[],
                   goal=:maximise,
                   solver=nothing,
                   verbose=nothing)
-    (expr, moments) = npa2sdp(expr, constraints, level_or_moments)
+    (expr, moments) = npa2sdp(expr, level_or_moments, eq=eq, ge=ge)
+
     model = sdp2jump(expr, moments,
                      goal=goal,
                      solver=solver,
@@ -288,25 +267,18 @@ function npa2jump(expr,
     return model
 end
 
-function npa2jump(expr, level_or_moments;
-                  goal=:maximise,
-                  solver=nothing,
-                  verbose=nothing)
-    return npa2jump(expr, [], level_or_moments,
-                    goal=goal,
-                    solver=solver,
-                    verbose=verbose)
-end
 
 
-
-function npa_opt(expr,
-                 constraints,
-                 level_or_moments;
+function npa_opt(expr, level_or_moments;
+                 eq=[],
+                 ge=[],
                  goal=:maximise,
                  solver=default_solver,
                  verbose=false)
-    model = npa2jump(expr, constraints, level_or_moments, goal=goal)
+    model = npa2jump(expr, level_or_moments,
+                     eq=eq,
+                     ge=ge,
+                     goal=goal)
 
     set_optimizer(model, solver)
 
@@ -321,34 +293,5 @@ end
 
 
 
-function npa_max(expr, constraints, level;
-                 solver=default_solver,
-                 verbose=false)
-    return npa_opt(expr, constraints, level,
-                   goal=:maximise,
-                   solver=solver,
-                   verbose=verbose)
-end
-
-function npa_max(expr, level; solver=default_solver, verbose=false)
-    return npa_max(expr, [], level,
-                   solver=solver,
-                   verbose=verbose)
-end
-
-
-
-function npa_min(expr, constraints, level;
-                 solver=default_solver,
-                 verbose=false)
-    return npa_opt(expr, constraints, level,
-                   goal=:minimise,
-                   solver=solver,
-                   verbose=verbose)
-end
-
-function npa_min(expr, level; solver=default_solver, verbose=false)
-    return npa_min(expr, [], level,
-                   solver=solver,
-                   verbose=verbose)
-end
+npa_max(expr, level; kw...) = npa_opt(expr, level; goal=:maximise, kw...)
+npa_min(expr, level; kw...) = npa_opt(expr, level; goal=:minimise, kw...)

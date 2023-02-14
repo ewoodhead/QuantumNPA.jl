@@ -11,8 +11,9 @@ function parse_dichotomic(expr)
         return :($(esc(expr)) = dichotomic($party, $(parse(Int, input))))
     else
         name = expr.args[1]
+        party = string(name)
         range = expr.args[2]
-        return :($(esc(name)) = dichotomic($(QuoteNode(name)), $range))
+        return :($(esc(name)) = dichotomic($party, $range))
     end
 end
 
@@ -194,3 +195,11 @@ end
 
 
 @operator Zbff(index::Integer, conj::Bool) "Z$party$conj$index"
+
+
+
+@operator Support() "V$party"
+
+Base.:*(v::Support, ::Support) = (1, [u])
+Base.:*(x::Operator, ::Support) = (1, [x])
+Base.:*(::Support, x::Operator) = (1, [x])

@@ -127,7 +127,7 @@ function stringfdef(name, fmt)
     fieldnames = [f for f in fmt.args if f isa Symbol]
 
     args = if (:party in fieldnames)
-               (:(x::$name), :(party::Integer))
+               (:(x::$name), :(party::PartyVec))
            else
                (:(x::$name),)
            end

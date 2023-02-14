@@ -15,6 +15,13 @@ using .QuantumNPA
 ```
 (The dot in the second line isn't a typo.)
 
+If you are working on the code and want to be able to call internal functions
+more conveniently you can instead do
+```julia
+include("qnpa.jl")
+```
+This will load every function and global variable into the main module.
+
 
 
 ## Working examples
@@ -27,7 +34,7 @@ julia> S = A1*(B1 + B2) + A2*(B1 - B2)
 A1 B1 + A1 B2 + A2 B1 - A2 B2
 
 julia> npa_max(S, 2)
-2.828427124718305
+2.828227712681755
 ```
 
 Maximise Svetlichny at level 1 + A B + A C + B C:
@@ -41,7 +48,7 @@ julia> S = -E(1,1,1) + E(1,1,2) + E(1,2,1) + E(1,2,2) + E(2,1,1) + E(2,1,2) + E(
 -A1 B1 C1 + A1 B1 C2 + A1 B2 C1 + A1 B2 C2 + A2 B1 C1 + A2 B1 C2 + A2 B2 C1 - A2 B2 C2
 
 julia> npa_max(S, "1 + A B + A C + B C")
-5.656854248886011
+5.656854315137034
 ```
 (note that the spaces e.g. between A and B are necessary in the string, since
 party labels go from A to Z then AA to ZZ then AAA to ZZZ...)
@@ -49,14 +56,27 @@ party labels go from A to Z then AA to ZZ then AAA to ZZZ...)
 Maximise a modified CHSH at level 1 + A B + A^2 B:
 ```julia
 julia> npa_max(0.3 * A1 + 0.6 * A1*(B1 + B2) + A2*(B1 - B2), "1 + A B + A^2 B")
-2.3584742798682132
+2.3584761820283977
 ```
 
-Maximise `<A1>` subject to `<A1*(B1 + B2)> = 1.4` and `<A2*(B1 - B2)> = 1.4`,
-assuming the operator variables are already defined:
+You can specify both equality and inequality arguments using the `eq` and
+`ge` keyword arguments. These should be lists of operators whose expectation
+values you want, respectively, to set to and lower bound by zero. For
+example, to maximise `<A1>` subject to `<A1*(B1 + B2)> = 1.4` and `<A2*(B1 -
+B2)> = 1.4`:
 ```julia
-julia> npa_max(A1, [A1*(B1 + B2) - 1.4, A2*(B1 - B2) - 1.4], 2)
-0.19802950752624165
+julia> npa_max(A1, 2, eq=[A1*(B1 + B2) - 1.4, A2*(B1 - B2) - 1.4])
+0.19800616634180992
+```
+Maximise `<A1 + A2>` subject to `<A1 + 2*A2> <= 1 ` and `<2*A1 + A2> <= 1`:
+```julia
+julia> npa_max(A1 + A2, 1, ge=[1 - A1 - 2*A2, 1 - 2*A1 - A2])
+0.6666666597867417
+```
+Maximise `<A1 + A2>` subject to `<A1> = <A2>` and `<A1 + 2*A2> <= 1 `:
+```julia
+julia> npa_max(A1 + A2, 1, eq=[A1 - A2], ge=[1 - A1 - 2*A2])
+0.666642228695571
 ```
 
 The above examples all use dichotomic variables, but projectors are also
@@ -67,7 +87,7 @@ julia> PA11, PA12 = projector(1,1,1:2);
 julia> PB11, PB12 = projector(2,1,1:2);
 
 julia> npa_max(-PA11 - PB11 + PA11*(PB11 + PB12) + PA12*(PB11 - PB12), 1)
-0.20710681094471445
+0.20701116471401693
 
 julia> (sqrt(2) - 1)/2
 0.20710678118654757
@@ -76,7 +96,7 @@ julia> (sqrt(2) - 1)/2
 Maximise CGLMP with d=3 at level 1 + A B:
 ```julia
 julia> npa_max(cglmp(3), "1 + A B")
-2.914855484110488
+2.914945976226541
 
 julia> 1 + sqrt(11/3)
 2.914854215512676
@@ -123,17 +143,17 @@ constraints = [PA[1,1] - 0.5,
                PA[1,2]*PB[1,1] - 0.25*(1 + p/sqrt(2)),
                PA[1,2]*PB[1,2] - 0.25*(1 - p/sqrt(2))]
 
-# This returns about 0.74618 for p = 0.9 at level 2 using the default SCS
+# This returns about 0.7467 for p = 0.9 at level 2 using the default SCS
 # solver.
-npa_max(G, constraints, 2)
+npa_max(G, 2, eq=constraints)
 ```
 
 QuantumNPA calls the SCS solver by default (since it doesn't require a
 license) to solve the NPA relaxation of a quantum optimisation problem, but a
-keyword argument lets you specify a different one. E.g., solve a problem
-using Mosek (requires a license):
+keyword argument `solver` lets you specify a different one. E.g., solve a
+problem using Mosek (which you need a license file to use):
 ```julia
-julia> using Mosek, MosekTools
+julia> using MosekTools
 
 julia> npa_max(S, 2, solver=Mosek.Optimizer)
 2.82842711211242
@@ -141,81 +161,58 @@ julia> npa_max(S, 2, solver=Mosek.Optimizer)
 You can also change the default solver if you don't want to specify it every
 time, e.g.,
 ```julia
-julia> QuantumNPA.set_solver(Mosek.Optimizer)
+julia> set_solver!(Mosek.Optimizer)
 ```
 
 If you want to construct a JuMP model and solve it separately:
 ```julia
 julia> model = npa2jump(S, "1 + A B", solver=SCS.Optimizer)
 A JuMP Model
-Maximization problem with:
-Variables: 16
-Objective function type: GenericAffExpr{Float64,VariableRef}
-`Array{GenericAffExpr{Float64,VariableRef},1}`-in-`MathOptInterface.PositiveSemidefiniteConeSquare`: 1 constraint
+Minimization problem with:
+Variables: 45
+Objective function type: AffExpr
+`AffExpr`-in-`MathOptInterface.EqualTo{Float64}`: 16 constraints
+`Vector{VariableRef}`-in-`MathOptInterface.PositiveSemidefiniteConeTriangle`: 1 constraint
 Model mode: AUTOMATIC
 CachingOptimizer state: EMPTY_OPTIMIZER
 Solver name: SCS
-Names registered in the model: v
 
 julia> optimize!(model)
-----------------------------------------------------------------------------
-        SCS v2.1.4 - Splitting Conic Solver
+------------------------------------------------------------------
+               SCS v3.2.0 - Splitting Conic Solver
         (c) Brendan O'Donoghue, Stanford University, 2012
-----------------------------------------------------------------------------
-Lin-sys: sparse-direct, nnz in A = 36
-eps = 1.00e-05, alpha = 1.50, max_iters = 5000, normalize = 1, scale = 1.00
-acceleration_lookback = 10, rho_x = 1.00e-03
-Variables n = 16, constraints m = 45
-Cones:  sd vars: 45, sd blks: 1
-Setup time: 3.08e-04s
-SCS using variable warm-starting
-----------------------------------------------------------------------------
- Iter | pri res | dua res | rel gap | pri obj | dua obj | kap/tau | time (s)
-----------------------------------------------------------------------------
-     0| 2.54e+19  0.00e+00  1.00e+00 -2.56e+19 -0.00e+00  2.06e+19  1.76e-04 
-    20| 1.54e-09  2.26e-09  1.05e-09 -2.83e+00 -2.83e+00  2.38e-17  2.25e-03 
-----------------------------------------------------------------------------
-Status: Solved
-Timing: Solve time: 2.27e-03s
-        Lin-sys: nnz in L factor: 97, avg solve time: 1.99e-06s
-        Cones: avg projection time: 7.35e-05s
-        Acceleration: avg step time: 2.23e-05s
-----------------------------------------------------------------------------
-Error metrics:
-dist(s, K) = 1.9436e-09, dist(y, K*) = 2.9284e-09, s'y/|s||y| = 7.9234e-12
-primal res: |Ax + s - b|_2 / (1 + |b|_2) = 1.5397e-09
-dual res:   |A'y + c|_2 / (1 + |c|_2) = 2.2622e-09
-rel gap:    |c'x + b'y| / (1 + |c'x| + |b'y|) = 1.0502e-09
-----------------------------------------------------------------------------
-c'x = -2.8284, -b'y = -2.8284
-============================================================================
+------------------------------------------------------------------
+problem:  variables n: 45, constraints m: 61
+cones:    z: primal zero / dual free vars: 16
+          s: psd vars: 45, ssize: 1
+settings: eps_abs: 1.0e-04, eps_rel: 1.0e-04, eps_infeas: 1.0e-07
+          alpha: 1.50, scale: 1.00e-01, adaptive_scale: 1
+          max_iters: 100000, normalize: 1, rho_x: 1.00e-06
+          acceleration_lookback: 10, acceleration_interval: 10
+lin-sys:  sparse-direct
+          nnz(A): 81, nnz(P): 0
+------------------------------------------------------------------
+ iter | pri res | dua res |   gap   |   obj   |  scale  | time (s)
+------------------------------------------------------------------
+     0| 2.22e+01  1.00e+00  2.00e+02 -9.98e+01  1.00e-01  1.40e-04 
+    75| 1.51e-05  5.94e-08  5.35e-08  2.83e+00  1.00e-01  3.10e-03 
+------------------------------------------------------------------
+status:  solved
+timings: total: 3.48e-03s = setup: 3.66e-04s + solve: 3.11e-03s
+         lin-sys: 2.47e-04s, cones: 2.58e-03s, accel: 1.57e-05s
+------------------------------------------------------------------
+objective = 2.828427
+------------------------------------------------------------------
 
 julia> objective_value(model)
-2.828427121779378
-
-julia> model[:v]
-1-dimensional DenseAxisArray{VariableRef,1,...} with index sets:
-    Dimension 1, Monomial[A1 A2, A1, A1 A2 B1, A1 A2 B2, A1 A2 B1 B2, A2 B1, B2, B1, B1 B2, A1 B2, A1 A2 B2 B1, A1 B1, A2 B2, A2 B1 B2, A1 B1 B2, A2]
-And data, a 16-element Array{VariableRef,1}:
- v[A1 A2]
- v[A1]
- v[A1 A2 B1]
- v[A1 A2 B2]
- v[A1 A2 B1 B2]
- v[A2 B1]
- v[B2]
- v[B1]
- v[B1 B2]
- v[A1 B2]
- v[A1 A2 B2 B1]
- v[A1 B1]
- v[A2 B2]
- v[A2 B1 B2]
- v[A1 B1 B2]
- v[A2]
+2.8284273129779325
 ```
-You can omit the `solver` keyword argument if you don't want to assign a
-solver.
+If you call `npa2jump()` without the `solver` keyword argument then a solver
+isn't assigned, and you will have to assign one to the JuMP model using
+JuMP's `set_optimizer()` function. You can also suppress the output of the
+solver by either calling `npa2jump()` with the keyword argument `verbose` set
+to false or by using JuMP's `set_silent()` function on the returned JuMP
+model.
 
 
 
@@ -337,17 +334,58 @@ unitary(party, index, conj=false)
 zbff(party, index, conj=false)
 ```
 In these:
-- Party numbers start from 1.
+- `party` is either:
+  - a strictly positive integer, e.g., `1`,
+  - a vector of strictly positive integers in strictly increasing order,
+    e.g., `[1, 3, 4]`, representing an operator associated to more than one
+    party,
+  - an uppercase alphabetic character, e.g. `'A'`, or
+  - a string of alphabetic characters corresponding to parties in increasing
+    order separated by underscores, e.g., `"A"` (same as party number `1`),
+    `"AB"` (party `28`), `"A_B"` (party vector `[1, 2]`), `"A_BC"` (party
+    vector `[1, 55]`).
+
+  Parties are always converted to and stored internally inside monomials in
+  the vector-of-integers form. Operators associated to different parties are
+  considered to commute if and only if the intersection of the party vectors
+  is empty.
 - The parameters called `input`, `output`, and `index` can be either integers
   or arrays or ranges of integers.
 - The parameter `conj` is optional and defaults to `false` if it is omitted.
 - For projectors, if you give a range of inputs you can also give a value for
   a fourth parameter `full`, which defaults to `false`. Setting it to `true`
-  indicates that you indend for the range of outputs to represent the full
+  indicates that you intend for the range of outputs to represent the full
   set of measurement outcomes. In that case, in place of the last projector
   you are given the identity minus the sum of all the preceding projectors.
 
-Couple of examples:
+Party labels go from A to Z for parties 1 to 26, then AA to ZZ starting from
+party 27, then AAA to ZZZ, and so on. Because of this, be aware that it is
+possible for different operators to end up being printed the same way:
+```julia
+julia> x = unitary(1, 3)
+UA3
+
+julia> y = dichotomic(547, 3)
+UA3
+
+julia> y*y
+Id
+
+julia> x*x
+UA3 UA3
+
+julia> conj(x)*x
+Id
+
+julia> x*y
+UA3 UA3
+
+julia> conj(x)*y
+UA*3 UA3
+```
+
+A few examples illustrating different ways of calling the `projector()`
+function:
 ```julia
 julia> projector(1, 1:2, 1:2)
 2×2 Array{Monomial,2}:
@@ -360,11 +398,49 @@ julia> projector(1, 1:3, 1:2, full=true)
  PA2|1               PA2|2
  Id - PA1|1 - PA2|1  Id - PA1|2 - PA2|2
 
-julia> julia> zbff(1, 1:3)
+julia> zbff(1, 1:3)
 3-element Array{Monomial,1}:
  ZA1
  ZA2
  ZA3
+```
+
+Examples illustrating commutation relations with dichotomic operators:
+```julia julia> A1, A2 = dichotomic(1, 1:2);
+
+julia> B1, B2 = dichotomic(2, 1:2);
+
+julia> A_C1 = dichotomic([1,3], 1);
+
+julia> A1*B1
+A1 B1
+
+julia> B1*A1
+A1 B1
+
+julia> A1*A_C1
+A1 A_C1
+
+julia> A_C1*A1
+A_C1 A1
+
+julia> A1*B1*A_C1
+A1 A_C1 B1
+
+julia> A_C1*A1*B1
+A_C1 A1 B1
+
+julia> A_C1*B1*A1
+A_C1 A1 B1
+
+julia> B1*A_C1*A1
+A_C1 A1 B1
+
+julia> A1*B1*A_C1*A2*B2
+A1 A_C1 A2 B1 B2
+
+julia> A1*B1*A_C1*A1*B1
+A1 A_C1 A1
 ```
 
 I am working on writing macros to automatically create variables using
@@ -394,6 +470,58 @@ A1 PA1|1
 julia> dichotomic(1, 1) - (2*projector(1, 1, 1) - Id)
 Id + A1 - 2 PA1|1
 ```
+
+Finally, it may be worth stressing that operators are objects that can be
+manipulated in the same sorts of ways as other types of objects in Julia,
+such as putting them in arrays or other data structures. For example,
+`dichotomic(p, 1:n)` returns a one-dimensional array of dichotomic operators,
+which we can then use in vector expressions such as:
+```julia
+julia> A = dichotomic(1, 1:2)
+2-element Vector{Monomial}:
+ A1
+ A2
+
+julia> B = dichotomic(2, 1:2)
+2-element Vector{Monomial}:
+ B1
+ B2
+
+julia> M = [1 1; 1 -1]
+2×2 Matrix{Int64}:
+ 1   1
+ 1  -1
+
+julia> A'*M*B
+A1 B1 + A1 B2 + A2 B1 - A2 B2
+
+julia> kron(A, B)
+4-element Vector{Union{Monomial, Polynomial}}:
+ A1 B1
+ A1 B2
+ A2 B1
+ A2 B2
+ 
+julia> [1,1,1,-1]'*kron(A, B)
+A1 B1 + A1 B2 + A2 B1 - A2 B2
+
+julia> V = [Id; A; B; kron(A, B)]'
+1×9 adjoint(::Vector{Union{Monomial, Polynomial}}) with eltype Union{Monomial, Polynomial}:
+ Id  A1  A2  B1  B2  A1 B1  A1 B2  A2 B1  A2 B2
+
+julia> V'*V
+9×9 Matrix{Monomial}:
+ Id     A1        A2        B1        B2        …  A2 B1        A2 B2
+ A1     Id        A1 A2     A1 B1     A1 B2        A1 A2 B1     A1 A2 B2
+ A2     A2 A1     Id        A2 B1     A2 B2        B1           B2
+ B1     A1 B1     A2 B1     Id        B1 B2        A2           A2 B1 B2
+ B2     A1 B2     A2 B2     B2 B1     Id           A2 B2 B1     A2
+ A1 B1  B1        A1 A2 B1  A1        A1 B1 B2  …  A1 A2        A1 A2 B1 B2
+ A1 B2  B2        A1 A2 B2  A1 B2 B1  A1           A1 A2 B2 B1  A1 A2
+ A2 B1  A2 A1 B1  B1        A2        A2 B1 B2     Id           B1 B2
+ A2 B2  A2 A1 B2  B2        A2 B2 B1  A2           B2 B1        Id
+```
+
 
 
 ## Analysing, modifying, and deconstructing operators
@@ -497,12 +625,11 @@ Polynomials will also act as iterators over pairs of their nonzero
 coefficients and monomials in contexts where an iterator is expected:
 ```julia
 julia> collect(S)
-4-element Array{Any,1}:
-4-element Array{Any,1}:
+4-element Vector{Any}:
+ Pair{Number,Monomial}(-1, A2 B2)
  Pair{Number,Monomial}(1, A1 B2)
  Pair{Number,Monomial}(1, A2 B1)
  Pair{Number,Monomial}(1, A1 B1)
- Pair{Number,Monomial}(-1, A2 B2)
 
 julia> for (c, m) in S
            @printf "%s  =>  %2d\n" m c
@@ -555,10 +682,10 @@ Set{Monomial} with 5 elements:
   B2
   E1
 ```
-`operators()` can optionally take a keyword argument `by_parties` which is
-set to `false` by default. Setting it to `true` groups the level-one
-operators by party and returns a dictionary of the parties and operators
-associated to those parties:
+`operators()` can optionally take a keyword argument `by_party` which is set
+to `false` by default. Setting it to `true` groups the level-one operators by
+party and returns a dictionary of the parties and operators associated to
+those parties:
 ```julia
 julia> operators(objective, constraints, by_party=true)
 Dict{Integer,Set{Monomial}} with 3 entries:
@@ -566,8 +693,9 @@ Dict{Integer,Set{Monomial}} with 3 entries:
   5 => Set(Monomial[E1])
   1 => Set(Monomial[A2, A1])
 ```
-This should be useful if we want to determine all the monomials in a problem
-at NPA levels like "1 + A B + A E + B E"...
+This is useful for constructing operators at intermediate levels of the
+NPA hierarchy like "1 + A B + A E + B E".
+
 
 
 ## NPA example
@@ -666,38 +794,320 @@ ERROR: MethodError: no method matching isless(::Monomial, ::Polynomial)
 
 
 
-## Internal details
+## Comments on implementation
 
-The way a list of operators are joined to multiply them is determined at the
-moment by a function `join_ops` near the beginning of the file `qnpa.jl`. It
-is not super general at the moment but is general enough to handle the
-different types of operators already defined.
+This last section gives some details about how operators are
+implemented. This is mainly of interest to people who want to better
+understand what the code does and how it works or want to modify it.
 
-Associating operators in groups to parties is handled by the `Monomial`
-type. At the moment it just contains a list
+The basic idea behind this whole library is that the NPA hierarchy method
+itself is pretty straightforward if the types of operators you need are
+supported. One then just has to compute all the operator products appearing
+in the upper triangular part of the moment matrix and check for relations
+between the results that translate to constraints on the moment matrix. So
+the main thing this library aims to do is add support to Julia for doing
+arithmetic and automatically simplifying products of certain types of
+operators commonly encountered in quantum optimisation problems that can be
+handled with the NPA hierarchy.
+
+There are three main types of operator defined in the code. They are:
+- The abstract `Operator` type, defined in `src/ops_primitive.jl`, which has
+  several concrete subtypes (`Dichotomic`, etc.) defined in
+  `src/ops_predefined.jl` corresponding to the different types of supported
+  operator. These types and objects of these types are used internally. They
+  are not meant to be created or manipulated directly by the user.
+  
+- `Monomial`, defined in `src/ops_monomial.jl`, to represent products of
+  operators associated to different parties.
+
+- `Polynomial`, defined in `src/ops_polynomial.jl`, to represent linear
+  combinations of monomials.
+
+
+### `Operator`
+
+`Operator` is an abstract type. This essentially means it is a collective
+name for several concrete types that, throughout the code, are assumed to
+have certain common properties making them interchangeable to a significant
+extent. In particular, they can be passed as arguments to certain functions
+such as `conj()` and `Base.:*`. The concrete subtypes, such as `Dichotomic`,
+are structs representing the different types of operators supported. What
+fields they have depends on the type. For example, `Dichotomic` objects have
+one field `index` for the index, `Projector`s have two for the output and
+input, and unitaries have an integer `index` and boolean `conj` field
+tracking whether they are conjugated or not.
+
+Objects of the different basic operator types are structs containing data
+about them. They are created by calling their constructors, which are
+functions with the same (capitalised) names as the types. For example:
 ```julia
-word = [(p1, ops1), (p2, ops2), ...]
+julia> x = Dichotomic(2)
+/2
+
+julia> fieldnames(Dichotomic)
+(:input,)
+
+julia> x.input
+2
+
+julia> y = Projector(2, 3)
+P2|3
+
+julia> fieldnames(Projector)
+(:output, :input)
+
+julia> (y.output, y.input)
+(2, 3)
+
+julia> u = Unitary(3, true)
+U*3
+
+julia> fieldnames(Unitary)
+(:index, :conj)
+
+julia> (u.index, u.conj)
+(3, true)
 ```
-of parties `p1`, `p2`, etc. and lists of operators `ops1`, `ops2`,
-etc. associated to those parties. For example,
+(Note that these constructors are not exported by the `QuantumNPA` module;
+you either need to prefix their names, e.g., `QuantumNPA.Dichotomic`, or load
+the codebase with `include("qnpa.jl")` to call them.)
+
+The file `src/ops_primitive.jl` defines default implementations of certain
+key functions that have to be supported for all operators, which can then be
+overriden when the default behaviour is not correct. For example, `conj()` is
+defined generically for operators to just return the original operator:
 ```julia
-julia> R
-PA1|1 PB2|2 ZE1 ZE2
-
-julia> R.word
-3-element Array{Tuple{Integer,Array{Operator,1}},1}:
- (1, [P1|1])
- (2, [P2|2])
- (5, [Z1, Z2])
+Base.conj(o::Operator) = o
 ```
-It is assumed that:
+This is fine for operators that are meant to be Hermitian:
+```julia
+julia> cx = conj(x)
+/2
 
-1. parties are numbered starting from 1,
-2. the party numbers are in strictly increasing order `p1 < p2 < p3 ...`, and
-3. only parties that have at least one operator associated with them appear
-   in the list.
+julia> cx === x
+true
+```
+But non-Hermitian types have conjugates that have to be determined in
+different ways depending on the type and therefore need their own specialised
+versions of `conj()`. For instance, `Unitary` objects have a `conj` field and
+a version of `conj()` specialised for unitaries just toggles it. Its
+definition is generated by a macro and amounts to
+```julia
+Base.conj(u::Unitary) = Unitary(u.index, !u.conj)
+```
+It is this version that gets called if `conj()` is called with a unitary
+argument:
+```julia
+julia> u.conj
+true
 
-This (mainly the definition of `Monomial` and the function
-`Base.:*(x::Monomial, y::Monomial)`) is the part of the code that would have
-to be modified if we wanted to support, e.g., operators acting on the
-subystems of more than one party.
+julia> v = conj(u)
+U3
+
+julia> v.conj
+false
+```
+
+How to multiply operators and, especially, when the product of two operators
+can be simplified is determined by a generic and specialised versions of
+`Base.:*`. The generic version is:
+```julia
+Base.:*(x::Operator, y::Operator) = (1, [x, y])
+```
+This just means that the default rule is to concatenate operators that are
+multiplied together, represented by the list `[x, y]`. The number `1` above
+is a multiplicative coefficient. This allows for the possibility of scaling
+factors appearing in multiplications in the future (such as something like an
+unnormalised projector that squares to a multiple of itself). Currently there
+are no such operators defined in the codebase and the coefficient is always
+zero or one.
+
+The implementation above is not sufficient for most of the operator types
+and, in practice, the generic multiplication rule is usually fallen back on
+to multiply operators of different types, e.g.,
+```julia
+julia> x*y
+(1, Operator[/2, P2|3])
+```
+while multiplication of operators of the same type is usually handled by
+specialised versions. Among these, `Dichotomic` objects have among the
+simplest nontrivial multiplication rules: the product of two dichotomic
+operators is the identity if their `input` fields are the same, otherwise
+they just concatenate. The implementation is:
+```julia
+function Base.:*(x::Dichotomic, y::Dichotomic)
+    return (x.input == y.input) ? (1, []) : (1, [x, y])
+end
+```
+with the empty vector `[]` used to represent the identity.
+
+Products are represented by vectors (one-dimensional arrays) of operators. A
+function `join_ops()`, defined near the beginning of `src/ops_primitive.jl`,
+determines how to multiply products. It takes two vectors of operators,
+`opsx` and `opsy`, and basically takes out and multiplies the last element of
+`opsx` and `opsy`, repeats this if the result is `[]` (representing the
+identity), and then returns the concatenation of the remaining elements of
+`opsx`, the last non-empty product, and the remaining `opsy`. An example
+invocation:
+```julia
+julia> p = [u, x]
+2-element Vector{Operator}:
+ U*3
+ /2
+
+julia> q = [x, y]
+2-element Vector{Operator}:
+ /2
+ P2|3
+
+julia> join_ops(p, q)
+(1, Operator[U*3, P2|3])
+```
+
+
+
+### `Monomial`
+
+`Monomial`s are the most basic type of operator that are meant to be created
+and manipulated in normal use of QuantumNPA. They represent products of
+operators grouped into different parties. They are structs whose only field,
+`word`, contains a vector `[(p1, ops1), (p2, ops2), ...]` of pairs of party
+vectors `p1`, `p2`, etc. and vectors of operators `ops1`, `ops2` (of the type
+used by the `join_ops()` function described above) associated to those
+parties. Thus, we can look at the contents of a `Monomial` by accessing its
+`word` field:
+```julia
+julia> (A1, A2) = dichotomic(1, 1:2);
+
+julia> PB11 = projector(2, 1, 1);
+
+julia> (UE1, UE2) = unitary(5, 1:2);
+
+julia> M = A1*A2*PB11*UE1*UE2
+A1 A2 PB1|1 UE1 UE2
+
+julia> M.word
+3-element Vector{Tuple{Vector{Int64}, Vector{Operator}}}:
+ ([1], [/1, /2])
+ ([2], [P1|1])
+ ([5], [U1, U2])
+```
+
+Party vectors (on the left of the example above) are vectors of integers
+representing which party or parties a group of operators are associated
+to. Valid party vectors are vectors of integers, such as `[1, 2, 4]`, in
+which all the integers are in strictly increasing order and the first (and
+smallest) integer is at least one. One party vector `p` is considered to
+lexicographically precede another `q` if `p < q` returns `true`. Often, they
+will just contain a single party, e.g. , `[1]`, but this isn't
+required. Operators associated to different parties are taken to commute if
+the intersection of the party vectors is empty. Thus `[1]` commutes with
+`[2]` and `[1,3]` commutes with `[2,4]`, but `[1,2]` does not commute with,
+for example, `[2]` or `[2,3]`
+
+`Monomial` objects are meant to represent monomials in a certain reduced
+canonical form. A monomial is considered in correctly reduced form if:
+
+1. The party vectors are valid and appear in lexicographic order as much as
+   commutation relations between them allow. This basically means that if a
+   party vector `p` is immediately followed by a party vector `q` then at
+   least one of `p < q` and `intersect(p, q) != []` should be `true`.
+
+2. The vectors of operators are nonempty and reduced as much as possible. For
+   example, a valid vector should not contain the same dichotomic operator
+   twice, or a unitary and its conjucate, directly following one another.
+
+A few key functions, particularly `Base.:*()`, `conj()`, and `adjoint()`, are
+responsible for maintaining these conventions, i.e., they should return
+monomials in the above-described canonical form assuming their inputs are in
+canonical form. So the recommended way to build monomials in most cases is to
+start with monomials containing a single operator and multiply them to
+construct longer monomials. A monomial containing just one operator can be
+created by calling the `Monomial` function with a party vector and operator
+as arguments, e.g.,
+```julia
+julia> M = Monomial([1], Dichotomic(2))
+A2
+
+julia> M.word
+1-element Vector{Tuple{Vector{Int64}, Vector{Operator}}}:
+ ([1], [/2])
+```
+It is also possible to construct a `Monomial` by calling `Monomial()` with an
+array of pairs of party vectors and vectors of operators as an argument, but
+this way isn't very readable and makes it easy to generate invalid monomials,
+and so should be avoided.
+
+
+
+### `Polynomial`
+
+`Polynomial` objects represent linear combinations of monomials, such as
+`A1 + 2 A2 B1`. They have a single field, `terms`, which is a dictionary
+mapping monomials to coefficients:
+```julia
+julia> P = 3*Id + 2*A1*A2
+3 Id + 2 A1 A2
+
+julia> P.terms
+Dict{Monomial, Number} with 2 entries:
+  Id    => 3
+  A1 A2 => 2
+```
+Only terms with nonzero coeffients should be stored. The arithmetic functions
+and indexed assignment (`setindex!()`, which makes `p[p] = c` work) don't
+create or remove pairs for which the coefficient is zero. So setting a term
+to zero deletes it from the dictionary:
+```julia
+julia> P
+3 Id + 2 A1 A2
+
+julia> P[A1*A2] = 0
+0
+
+julia> P
+3 Id
+
+julia> P.terms
+Dict{Monomial, Number} with 1 entry:
+  Id => 3
+```
+The zero polynomial is represented by an empty dictionary.
+
+There are a few different versions of the `Polynomial()` constructor. The
+basic one takes a dictionary mapping monomials to coefficients and simply
+uses that as the `terms` field. This is only meant to be used internally, and
+with care, since it can be used to create "invalid" polynomials that break
+assumptions made elsewhere in the library:
+```julia
+julia> Q = Polynomial(Dict(A1*A2 => 0))
+0 A1 A2
+
+julia> Q == 0
+false
+```
+Other versions create a polynomial with no input argument (returns the zero
+polynomial), or a number, a monomial, a number and monomial, or a polynomial:
+```julia
+julia> Polynomial()
+0
+
+julia> Polynomial(3)
+3 Id
+
+julia> Polynomial(A1)
+A1
+
+julia> Polynomial(3, A1)
+3 A1
+
+julia> Polynomial(P)
+3 Id
+```
+As mentioned above, the latter just returns the polynomial given as input.
+The fourth one is used to define multiplication of a number by a monomial in
+`src/ops_polynomial.jl`:
+```julia
+Base.:*(x::Number, y::Monomial) = Polynomial(x, y)
+Base.:*(x::Monomial, y::Number) = Polynomial(y, x)
+```

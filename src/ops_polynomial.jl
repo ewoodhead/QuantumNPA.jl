@@ -221,14 +221,9 @@ Base.:*(x::Number, y::Monomial) = Polynomial(x, y)
 Base.:*(x::Monomial, y::Number) = Polynomial(y, x)
 
 function Base.:*(x::Monomial, y::Monomial)
-    product = join_monomials(x, y)
+    (c, m) = join_monomials(x, y)
 
-    if product isa Tuple
-        (c, m) = product
-        return Polynomial(c, m)
-    else
-        return product
-    end
+    return (c != 1) ? Polynomial(c, m) : m
 end
 
 function Base.:*(x::Number, y::Polynomial)
@@ -310,7 +305,7 @@ comm(x, y) = x*y - y*x
 
 acomm(x::Number, y::Number) = 2*rmul(x, y)
 acomm(x::Number, y::Monomial) = Polynomial(2*x, y)
-acomm(x::Monomial, y::Number) = Polynomail(2*y, x)
+acomm(x::Monomial, y::Number) = Polynomial(2*y, x)
 acomm(x, y) = x*y + y*x
 
 
@@ -330,7 +325,7 @@ function Base.conj(x::Polynomial)
 end
 
 function Base.adjoint(x::Polynomial)
-    return Polynomial((adjoint(m), adjoint(c)) for (c, m) in x)
+    return Polynomial((adjoint(c), adjoint(m)) for (c, m) in x)
 end
 
 Base.zero(::Polynomial) = Polynomial()
@@ -348,14 +343,8 @@ end
 trace(x::Number) = x
 
 function trace(m::Monomial)
-    result = ctrace(m)
-
-    if result isa Tuple
-        (c, tm) = result
-        return Polynomial(c, tm)
-    else
-        return result
-    end
+    (c, tm) = ctrace(m)
+    return (c == 1) ? tm : Polynomial(c, tm)
 end
 
 trace(p::Polynomial) = psum(c*trace(m) for (c, m) in p)
