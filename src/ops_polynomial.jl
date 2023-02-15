@@ -340,8 +340,6 @@ end
 
 
 
-trace(x::Number) = x
-
 function trace(m::Monomial)
     (c, tm) = ctrace(m)
     return (c == 1) ? tm : Polynomial(c, tm)

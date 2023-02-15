@@ -62,17 +62,18 @@ function isless_samelen(x::OpVector,
                         y::OpVector,
                         offset_x::Int=0,
                         offset_y::Int=0,
-                        len::Int=length(x))
-    if iszero(len)
+                        lenx::Int=length(x),
+                        leny::Int=length(y))
+    if iszero(lenx)
         return false
     end
 
     j = 0
-    jc = 1 + (j + offset_x) % len
+    jc = 1 + (j + offset_x) % lenx
     (p, u) = x[jc]
 
     k = 0
-    kc = 1 + (k + offset_y) % len
+    kc = 1 + (k + offset_y) % leny
     (q, v) = y[kc]
 
     if (p != q)
@@ -100,13 +101,13 @@ function isless_samelen(x::OpVector,
                 ov = v[iv]
             else
                 k += 1
-                kc = 1 + (k + offset_y) % len
+                kc = 1 + (k + offset_y) % leny
                 q = y[kc][1]
                 return p < q
             end
         else
             j += 1
-            jc = 1 + (j + offset_x) % len
+            jc = 1 + (j + offset_x) % lenx
 
             if iv < mv
                 p = x[jc][1]
@@ -115,7 +116,7 @@ function isless_samelen(x::OpVector,
                 (p, u) = x[jc]
 
                 k += 1
-                kc = 1 + (k + offset_y) % len
+                kc = 1 + (k + offset_y) % leny
                 (q, v) = y[kc]
 
                 if p != q
@@ -143,7 +144,7 @@ function Base.isless(x::Monomial, y::Monomial)
         return ox < oy
     end
 
-    return isless_samelen(x.word, y.word, 0, ox)
+    return isless_samelen(x.word, y.word)
 end
 
 
@@ -162,9 +163,141 @@ function conj_min(m::Monomial; f=identity)
     end
 
     return min(z, f(conj(m)))
+
+
+
+"""
+Test if vectors u and v are the same up to index n. Returns 0 if they are,
+otherwise returns the first index where they differ.
+"""
+function same_upto(u, v, n)
+    k = 0
+    
+    while ((k += 1) <= n)
+        if u[k] != v[k]
+            return k
+        end
+    end
+
+    return 0
 end
 
+"""
+Test if two party vecs have any parties in common, optionally starting from
+given indices j and k.
+"""
+function parties_isect(u::PartyVec,
+                       v::PartyVec,
+                       j=1,
+                       k=1,
+                       m=length(u),
+                       n=length(v))
+    if (j > m) || (k > n)
+        return true
+    end
 
+    p = u[j]
+    q = v[k]
+
+    while true
+        if p == q
+            return true
+        elseif p < q
+            if (j += 1) > m
+                return false
+            end
+         
+            p = u[j]
+        else
+            if (k += 1) > n
+                return false
+            end
+
+            q = v[k]
+        end
+    end
+end
+
+"""
+Test if two party vecs should be swapped (return :swap), merged
+(return :join), or left in the order they already are (return :leave).
+"""
+function swap_or_join(u::PartyVec, v::PartyVec)
+    if (m = length(u)) == 0
+        return isempty(v) ? :join : :leave
+    elseif (n = length(v)) == 0
+        return :swap
+    end
+
+    if u[1] < v[1]
+        return :leave
+    end
+
+    if (m == n) && ((k0 = same_upto(u, v, m)) == 0)
+        return :join
+    else
+        k0 = 1
+    end
+
+    return parties_isect(u, v, k0, k0, m, n) ? :leave : :swap
+end
+
+function insert_at(p::PartyVec, y::OpVector, n::Int)
+    for k in 1:n
+        q = y[k][1]
+        result = swap_or_join(p, q)
+
+        if result === :join
+            return (k, :join)
+        elseif result === :leave
+            return (k, :leave)
+        end
+    end
+
+    return (n+1, :leave)
+end
+
+function join_words(x::OpVector, y::OpVector)
+    if (m = length(x)) == 0
+        return (1, y)
+    elseif (n = length(y)) == 0
+        return (1, x)
+    end
+
+    coeff = 1
+    word = copy(y)
+    k = n
+
+    for (j, pu) in Iterators.reverse(enumerate(x))
+        (p, u) = pu
+        (k, action) = insert_at(p, word, k)
+
+        if action === :join
+            (c, w) = join_ops(u, word[k][2])
+
+            if iszero(c)
+                return (0, Id_word)
+            end
+
+            coeff *= c
+
+            if !isempty(w)
+                word[k] = (p, w)
+                k -= 1
+            else
+                deleteat!(word, k)
+                n -= 1
+                k = n
+            end
+        else
+            insert!(word, k, pu)
+            k -= 1
+            n += 1
+        end
+    end
+
+    return (coeff, word)
+end
 
 """
 Test if vectors u and v are the same up to index n. Returns 0 if they are,
@@ -386,7 +519,7 @@ function min_party_cycle(word::OpVector, m=length(word))
     off_min = 0
 
     for off in 1:(m-1)
-        if isless_samelen(word, word, off, off_min, m)
+        if isless_samelen(word, word, off, off_min, m, m)
             off_min = off
         end
     end
