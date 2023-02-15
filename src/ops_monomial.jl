@@ -163,6 +163,7 @@ function conj_min(m::Monomial; f=identity)
     end
 
     return min(z, f(conj(m)))
+end
 
 
 
