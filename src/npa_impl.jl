@@ -115,8 +115,8 @@ function npa2sdp(expr,
     if level_or_moments isa Moments
         moments = level_or_moments
     else
-        moments = npa_moments(ops_at_level([expr, eq, ge],
-                                           level_or_moments))
+        ops = ops_at_level([expr, eq, ge], level_or_moments)
+        moments = npa_moments(ops, f=f)
     end
     
     # Reduce constraints to canonical form
