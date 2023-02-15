@@ -200,6 +200,6 @@ end
 
 @operator Support() "V$party"
 
-Base.:*(v::Support, ::Support) = (1, [u])
+Base.:*(v::Support, ::Support) = (1, [v])
 Base.:*(x::Operator, ::Support) = (1, [x])
 Base.:*(::Support, x::Operator) = (1, [x])

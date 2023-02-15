@@ -112,7 +112,7 @@ function isless_samelen(x::OpVector,
             if iv < mv
                 p = x[jc][1]
                 return p < q
-            elseif j < len
+            elseif j < lenx
                 (p, u) = x[jc]
 
                 k += 1
