@@ -210,7 +210,7 @@ function sdp2jump(expr, moments;
                   goal=:maximise,
                   solver=nothing,
                   verbose=nothing,
-                  fixed=Id)
+                  fixed=(Id, 1))
     if goal in (:maximise, :maximize, :max)
         maximise = true
         s = 1
@@ -218,14 +218,16 @@ function sdp2jump(expr, moments;
         maximise = false
         s = -1
     end
+
+    (f_op, fv) = fixed
     
     model = !isnothing(solver) ? Model(solver) : Model()
 
     Z = [@variable(model, [1:n, 1:n], PSD) for n in blocksizes(moments)]
 
-    objective = (sum(LinearAlgebra.tr(s*G*Z[b])
-                     for (b, G) in enumerate(blocks(moments[fixed])))
-                 + expr[fixed])
+    objective = fv*(sum(LinearAlgebra.tr(s*G*Z[b])
+                        for (b, G) in enumerate(blocks(moments[f_op])))
+                    + expr[f_op])
     
     if maximise
         @objective(model, Min, objective)
@@ -234,7 +236,7 @@ function sdp2jump(expr, moments;
     end
 
     for (m, moment) in moments
-        if m != fixed
+        if m != f_op
             c = expr[m]
             
             @constraint(model,
