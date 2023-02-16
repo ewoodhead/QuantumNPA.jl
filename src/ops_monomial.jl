@@ -57,6 +57,72 @@ Base.:(==)(x::Monomial, y::Number) = (y == 1) && isempty(x)
 Base.:(==)(x::Monomial, y::Monomial) = (x.word == y.word)
 
 
+"""
+Return -1, 0, or 1 depending on whether p predeces, equals, or follows q
+lexicographically, assuming they are the same length.
+"""
+function cmp_samelen(p::Vector, q::Vector)
+    for (x, y) in zip(p, q)
+        if (x != y)
+            return (x < y) ? -1 : 1
+        end
+    end
+
+    return 0
+end
+
+
+
+"""
+Return -1, 0, or 1 depending on whether p precedes, equals, or follows q.
+
+\"Precede\" here means either:
+  - p is shorter than q, or
+  - p is the same length as p, and p lexicographically precedes q.
+"""
+function cmp_vec(p::Vector, q::Vector)
+    m = length(p)
+    n = length(q)
+
+    if (m != n)
+        return (m < n) ? -1 : 1
+    end
+
+    return cmp_samelen(p, q)
+end
+
+"""
+Takes two pairs p_ops = (p, [x...]) and q_ops = (q, [y...]) of parties and
+operators associated to those parties and returns -1, 0, or 1 depending on
+whether p_ops precedes, is the same as, or follows q_ops.
+
+\"Precede\" here means:
+  - p precedes q (i.e., cmp_vec(p, q) returns -1), or
+  - p equals q and length([x...]) is greater than length([y...])
+  - p equals q, length([x...]) equals length([y...]), and [x...] precedes
+    [y...] lexicographically.
+"""
+function cmp_pgroup(p_ops, q_ops)
+    (p, u) = p_ops
+    (q, v) = q_ops
+
+    cmp_pq = cmp_vec(p, q)
+
+    if (cmp_pq != 0)
+        return cmp_pq
+    end
+
+    m = length(u)
+    n = length(v)
+
+    if (m != n)
+        return (m > n) ? -1 : 1
+    end
+
+    return cmp_samelen(u, v)
+end
+
+
 
 function isless_samelen(x::OpVector,
                         y::OpVector,
@@ -138,13 +204,39 @@ function isless_samelen(x::OpVector,
 end
 
 function Base.isless(x::Monomial, y::Monomial)
-    ox, oy = degree(x), degree(y)
+    deg_x = degree(x)
+    deg_y = degree(y)
 
-    if ox != oy
-        return ox < oy
+    if (deg_x != deg_y)
+        return (deg_x < deg_y)
     end
 
-    return isless_samelen(x.word, y.word)
+    if (deg_x == 0)
+        return false
+    end
+
+    wx = x.word
+    wy = y.word
+
+    nx = length(wx)
+    ny = length(wy)
+
+    nx_le_ny = (nx < ny)
+
+    m = (nx_le_ny ? nx : ny)
+    j = 1
+
+    while (j <= m)
+        cmp_xy = cmp_pgroup(wx[j], wy[j])
+
+        if (cmp_xy != 0)
+            return (cmp_xy == -1)
+        end
+
+        j += 1
+    end
+
+    return nx_le_ny
 end
 
 
@@ -178,35 +270,33 @@ end
 """
 Test if two party vecs have any parties in common, optionally starting from
 given indices j and k.
+
+parties_isect(p, q) returns the same thing as !isempty(intersect(p, q)), but
+uses that the elements of p and q are strictly increasing to 
 """
-function parties_isect(u::PartyVec,
-                       v::PartyVec,
-                       j=1,
-                       k=1,
-                       m=length(u),
-                       n=length(v))
-    if (j > m) || (k > n)
-        return true
+function parties_isect(p::PartyVec, q::PartyVec)
+    if ((m = length(p)) == 0) || ((n = length(q)) == 0)
+        return false
     end
 
-    p = u[j]
-    q = v[k]
+    (j, x) = (1, p[1])
+    (k, y) = (1, q[1])
 
     while true
-        if p == q
+        if x == y
             return true
-        elseif p < q
+        elseif x < y
             if (j += 1) > m
                 return false
             end
          
-            p = u[j]
+            x = p[j]
         else
             if (k += 1) > n
                 return false
             end
 
-            q = v[k]
+            y = q[k]
         end
     end
 end
@@ -215,24 +305,14 @@ end
 Test if two party vecs should be swapped (return :swap), merged
 (return :join), or left in the order they already are (return :leave).
 """
-function swap_or_join(u::PartyVec, v::PartyVec)
-    if (m = length(u)) == 0
-        return isempty(v) ? :join : :leave
-    elseif (n = length(v)) == 0
-        return :swap
+function swap_or_join(p::PartyVec, q::PartyVec)
+    cmp_pq = cmp_vec(p, q)
+
+    if (cmp_pq == 1)
+        return parties_isect(p, q) ? :leave : :swap
     end
 
-    if u[1] < v[1]
-        return :leave
-    end
-
-    if (m == n) && ((k0 = same_upto(u, v, m)) == 0)
-        return :join
-    else
-        k0 = 1
-    end
-
-    return parties_isect(u, v, k0, k0, m, n) ? :leave : :swap
+    return (cmp_pq == 0) ? :join : :leave
 end
 
 function insert_at(p::PartyVec, y::OpVector, n::Int)
