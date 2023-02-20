@@ -124,85 +124,27 @@ end
 
 
 
-function isless_samelen(x::OpVector,
-                        y::OpVector,
-                        offset_x::Int=0,
-                        offset_y::Int=0,
-                        lenx::Int=length(x),
-                        leny::Int=length(y))
-    if iszero(lenx)
-        return false
-    end
+"""
+Define ordering of monomials, for printing and choosing canonical monomials
+out of a group (e.g., using the minimum cycle to represent the trace).
 
-    j = 0
-    jc = 1 + (j + offset_x) % lenx
-    (p, u) = x[jc]
+If degree(x) < degree(y) then x precedes y. Otherwise, if x and y have the
+same degree then the result is true if x precedes y lexicographically. The
+way x is compared to y in that case favours larger groups of adjacent
+operators sharing the same party. For example,
 
-    k = 0
-    kc = 1 + (k + offset_y) % leny
-    (q, v) = y[kc]
+  A1 < A2 ,
 
-    if (p != q)
-        return (p < q)
-    end
+but
 
-    mu = length(u)
-    iu = 1
-    ou = u[iu]
+  A2 A1 B1 < A1 B1 B2
 
-    mv = length(v)
-    iv = 1
-    ov = v[iv]
-
-    while true
-        if ou != ov
-            return ou < ov
-        end
-
-        if iu < mu
-            if iv < mv
-                iu += 1
-                ou = u[iu]
-                iv += 1
-                ov = v[iv]
-            else
-                k += 1
-                kc = 1 + (k + offset_y) % leny
-                q = y[kc][1]
-                return p < q
-            end
-        else
-            j += 1
-            jc = 1 + (j + offset_x) % lenx
-
-            if iv < mv
-                p = x[jc][1]
-                return p < q
-            elseif j < lenx
-                (p, u) = x[jc]
-
-                k += 1
-                kc = 1 + (k + offset_y) % leny
-                (q, v) = y[kc]
-
-                if p != q
-                    return p < q
-                end
-
-                mu = length(u)
-                iu = 1
-                ou = u[iu]
-
-                mv = length(v)
-                iv = 1
-                ov = v[iv]
-            else
-                return false
-            end
-        end
-    end
-end
-
+because A2 A1 B1 starts with two As while A1 B1 B2 only starts with one. The
+reason for this is to keep adjacent operators sharing the same party together
+when using the lexicographically first cycle as the representative of the
+trace. This way, for example, we represent trace(A2 A1 A_B1) with A2 A1 A_B1
+rather than A1 A_B1 A2.
+"""
 function Base.isless(x::Monomial, y::Monomial)
     deg_x = degree(x)
     deg_y = degree(y)
@@ -315,6 +257,10 @@ function swap_or_join(p::PartyVec, q::PartyVec)
     return (cmp_pq == 0) ? :join : :leave
 end
 
+"""
+We have a vector y = [(q, [ops...])...] of groups of adjacent operators
+[ops...] sharing the same parties q and 
+"""
 function insert_at(p::PartyVec, y::OpVector, n::Int)
     for k in 1:n
         q = y[k][1]
@@ -330,8 +276,46 @@ function insert_at(p::PartyVec, y::OpVector, n::Int)
     return (n+1, :leave)
 end
 
+"""
+Re-minimise a word that has just had a new group of operators added to its
+front. Input has to contain at least one element.
+
+For example, suppose we had the monomial A1 B1 and we added A_C1 to the front
+to get A_C1 A1 B1. remin! reorders the OpVector representing this to the
+vector corresponding to B1 A_C1 A1, which is the rearrangement of A_c1 A1 B1
+that comes first lexicographically.
+"""
+function remin!(word)
+    n = length(word)
+
+    p0 = first(word[1])
+    parties = Set{Int}(p0)
+
+    move_front = Int[]
+    move_back = Int[1]
+
+    for k in 2:n
+        p = first(word[k])
+
+        if parties_isect(parties, p) || (cmp_vec(p, p0) != -1)
+            parties = union!(parties, p)
+            push!(move_back, k)
+        else
+            push!(move_front, k)
+        end
+    end
+
+    perm = vcat(move_front, move_back)
+    permute!(word, perm)
+    return
+end
+
+"""
+Determine the product of two monomials, represented as lists
+[(p, [ops...])...] of pairs of parties and operators.
+"""
 function join_words(x::OpVector, y::OpVector)
-    if (m = length(x)) == 0
+    if length(x) == 0
         return (1, y)
     elseif (n = length(y)) == 0
         return (1, x)
@@ -339,11 +323,13 @@ function join_words(x::OpVector, y::OpVector)
 
     coeff = 1
     word = copy(y)
+    left = copy(x)
     k = n
 
-    for (j, pu) in Iterators.reverse(enumerate(x))
+    while !isempty(left)
+        pu = pop!(left)
         (p, u) = pu
-        (k, action) = insert_at(p, word, k)
+        (k, action) = insert_at(p, word, n)
 
         if action === :join
             (c, w) = join_ops(u, word[k][2])
@@ -356,15 +342,15 @@ function join_words(x::OpVector, y::OpVector)
 
             if !isempty(w)
                 word[k] = (p, w)
-                k -= 1
+                remin!(@view(word[k:end]))
             else
-                deleteat!(word, k)
-                n -= 1
-                k = n
+                append!(left, @view(word[1:(k-1)]))
+                deleteat!(word, 1:k)
+                n -= k
             end
         else
             insert!(word, k, pu)
-            k -= 1
+            remin!(@view(word[k:end]))
             n += 1
         end
     end
@@ -384,25 +370,12 @@ end
 
 
 function word_conj(word::OpVector)
-    result = OpVector()
+    n = length(word)
+    result = [(p, map(conj, Iterators.reverse(u)))
+              for (p, u) in reverse(word)]
 
-    for (p, u) in word
-        w = map(conj, Iterators.reverse(u))
-
-        k = 1
-        n = length(result)
-
-        while k <= n
-            q = result[k][1]
-
-            if swap_or_join(p, q) !== :swap
-                break
-            end
-            
-            k += 1
-        end
-
-        insert!(result, k, (p, w))
+    for k in (n-1):-1:1
+        remin!(@view(result[k:n]))
     end
 
     return result

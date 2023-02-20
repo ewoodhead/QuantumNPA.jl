@@ -406,7 +406,8 @@ julia> zbff(1, 1:3)
 ```
 
 Examples illustrating commutation relations with dichotomic operators:
-```julia julia> A1, A2 = dichotomic(1, 1:2);
+```julia
+julia> A1, A2 = dichotomic(1, 1:2);
 
 julia> B1, B2 = dichotomic(2, 1:2);
 
@@ -425,23 +426,26 @@ julia> A_C1*A1
 A_C1 A1
 
 julia> A1*B1*A_C1
-A1 A_C1 B1
-
-julia> A_C1*A1*B1
-A_C1 A1 B1
-
-julia> A_C1*B1*A1
-A_C1 A1 B1
-
-julia> B1*A_C1*A1
-A_C1 A1 B1
+A1 B1 A_C1
 
 julia> A1*B1*A_C1*A2*B2
-A1 A_C1 A2 B1 B2
+A1 B1 B2 A_C1 A2
 
 julia> A1*B1*A_C1*A1*B1
 A1 A_C1 A1
+
+julia> X = A1*B1
+A1 B1
+
+julia> Y = A_C1*X
+B1 A_C1 A1
+
+julia> A_C1*Y
+A1 B1
 ```
+In the last few evaluations, notice how `B1` starts behind `A1`, but then
+moves to the front of the expression when `A_C1` is added, then ends up
+behind `A1` again after the `A_C1` is cancelled out.
 
 I am working on writing macros to automatically create variables using
 "standard" names. At the moment you can do, e.g., this to create some
