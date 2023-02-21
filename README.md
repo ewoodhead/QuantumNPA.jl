@@ -406,7 +406,8 @@ julia> zbff(1, 1:3)
 ```
 
 Examples illustrating commutation relations with dichotomic operators:
-```julia julia> A1, A2 = dichotomic(1, 1:2);
+```julia
+julia> A1, A2 = dichotomic(1, 1:2);
 
 julia> B1, B2 = dichotomic(2, 1:2);
 
@@ -425,23 +426,26 @@ julia> A_C1*A1
 A_C1 A1
 
 julia> A1*B1*A_C1
-A1 A_C1 B1
-
-julia> A_C1*A1*B1
-A_C1 A1 B1
-
-julia> A_C1*B1*A1
-A_C1 A1 B1
-
-julia> B1*A_C1*A1
-A_C1 A1 B1
+A1 B1 A_C1
 
 julia> A1*B1*A_C1*A2*B2
-A1 A_C1 A2 B1 B2
+A1 B1 B2 A_C1 A2
 
 julia> A1*B1*A_C1*A1*B1
 A1 A_C1 A1
+
+julia> X = A1*B1
+A1 B1
+
+julia> Y = A_C1*X
+B1 A_C1 A1
+
+julia> A_C1*Y
+A1 B1
 ```
+In the last few evaluations, notice how `B1` starts behind `A1`, but then
+moves to the front of the expression when `A_C1` is added, then ends up
+behind `A1` again after the `A_C1` is cancelled out.
 
 I am working on writing macros to automatically create variables using
 "standard" names. At the moment you can do, e.g., this to create some
@@ -998,20 +1002,21 @@ representing which party or parties a group of operators are associated
 to. Valid party vectors are vectors of integers, such as `[1, 2, 4]`, in
 which all the integers are in strictly increasing order and the first (and
 smallest) integer is at least one. One party vector `p` is considered to
-lexicographically precede another `q` if `p < q` returns `true`. Often, they
-will just contain a single party, e.g. , `[1]`, but this isn't
-required. Operators associated to different parties are taken to commute if
-the intersection of the party vectors is empty. Thus `[1]` commutes with
-`[2]` and `[1,3]` commutes with `[2,4]`, but `[1,2]` does not commute with,
-for example, `[2]` or `[2,3]`
+lexicographically precede another `q` if `length(p) < length(q)` or if
+`length(p) == length(q)` and `p < q`. Often, they will just contain a single
+party, e.g. , `[1]`, but this isn't required. Operators associated to
+different parties are taken to commute if the intersection of the party
+vectors is empty. Thus `[1]` commutes with `[2]` and `[1,3]` commutes with
+`[2,4]`, but `[1,2]` does not commute with, for example, `[2]` or `[2,3]`
 
 `Monomial` objects are meant to represent monomials in a certain reduced
 canonical form. A monomial is considered in correctly reduced form if:
 
 1. The party vectors are valid and appear in lexicographic order as much as
    commutation relations between them allow. This basically means that if a
-   party vector `p` is immediately followed by a party vector `q` then at
-   least one of `p < q` and `intersect(p, q) != []` should be `true`.
+   party vector `p` is immediately followed by a party vector `q` then either
+   `p` must precede `q` lexicographically or they must have nonzero
+   intersection.
 
 2. The vectors of operators are nonempty and reduced as much as possible. For
    example, a valid vector should not contain the same dichotomic operator
