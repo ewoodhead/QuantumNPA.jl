@@ -127,6 +127,25 @@ end
 
 isless_pgroup(p_ops, q_ops) = (cmp_pgroup(p_ops, q_ops) == -1)
 
+function isless_word(wx::OpVector, wy::OpVector)
+    nx = length(wx)
+    ny = length(wy)
+
+    nx_le_ny = (nx < ny)
+
+    m = (nx_le_ny ? nx : ny)
+
+    for j in 1:m
+        cmp_xy = cmp_pgroup(wx[j], wy[j])
+
+        if (cmp_xy != 0)
+            return (cmp_xy == -1)
+        end
+    end
+
+    return nx_le_ny
+end
+
 
 
 """
@@ -162,28 +181,7 @@ function Base.isless(x::Monomial, y::Monomial)
         return false
     end
 
-    wx = x.word
-    wy = y.word
-
-    nx = length(wx)
-    ny = length(wy)
-
-    nx_le_ny = (nx < ny)
-
-    m = (nx_le_ny ? nx : ny)
-    j = 1
-
-    while (j <= m)
-        cmp_xy = cmp_pgroup(wx[j], wy[j])
-
-        if (cmp_xy != 0)
-            return (cmp_xy == -1)
-        end
-
-        j += 1
-    end
-
-    return nx_le_ny
+    return isless_word(x.word, y.word)
 end
 
 
@@ -312,7 +310,7 @@ function remin!(word)
 
     perm = vcat(move_front, move_back)
     permute!(word, perm)
-    return
+    return word
 end
 
 """
@@ -508,9 +506,26 @@ function join_back(word::OpVector)
     return (coeff, word)
 end
 
+"Return minimal cycle of groups of operators in word."
+function min_cycle(word::OpVector)
+    n = length(word)
+    n1 = n - 1
+    mcycle = word
+
+    for _ in 1:n1
+        word = remin!(vcat(word[end], word[1:n1]))
+
+        if isless_word(word, mcycle)
+            mcycle = word
+        end
+    end
+
+    return mcycle
+end
+
 function ctrace(word::OpVector)
     (coeff, word) = join_back(word)
-    return (coeff, word)
+    return (coeff, min_cycle(word))
 end
 
 function ctrace(m::Monomial)
