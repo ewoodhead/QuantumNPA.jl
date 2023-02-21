@@ -57,6 +57,9 @@ Base.:(==)(x::Monomial, y::Number) = (y == 1) && isempty(x)
 Base.:(==)(x::Monomial, y::Monomial) = (x.word == y.word)
 
 
+
+# Implement lexicographical comparison of party vectors and monomials.
+
 """
 Return -1, 0, or 1 depending on whether p predeces, equals, or follows q
 lexicographically, assuming they are the same length.
@@ -121,6 +124,8 @@ function cmp_pgroup(p_ops, q_ops)
 
     return cmp_samelen(u, v)
 end
+
+isless_pgroup(p_ops, q_ops) = (cmp_pgroup(p_ops, q_ops) == -1)
 
 
 
@@ -369,6 +374,8 @@ end
 
 
 
+# Implementation of conjugate/adjoint of a monomial.
+
 function word_conj(word::OpVector)
     n = length(word)
     result = [(p, map(conj, Iterators.reverse(u)))
@@ -384,6 +391,17 @@ end
 Base.conj(m::Monomial) = Monomial(word_conj(m.word))
 Base.adjoint(m::Monomial) = Monomial(word_conj(m.word))
 
+
+
+# Helper functions to reduce monomials under trace. The actual implementation
+# of trace() is deferred to the file ops_polynomial.jl since this code
+# supports the possibility that the trace might have to be a polynomial,
+# specifically, a monomial multiplied by a coefficient different from 1.
+
+"""
+Test if p and q intersect. Assumes that q is a vector of integers in stricty
+increasing order.
+"""
 function parties_isect(p::Set{Int}, q::PartyVec)
     for k in q
         if k in p
@@ -394,112 +412,105 @@ function parties_isect(p::Set{Int}, q::PartyVec)
     return false
 end
 
-function isect_or_equal(p::PartyVec, q::PartyVec)
-    if p == q
-        return :equal
-    elseif parties_isect(p, q)
-        return :isect
-    else
-        return :disjoint
-    end
-end
 
-function cjoin_or_leave(p::PartyVec, j::Int, word::OpVector, n::Int)
-    k = n
 
-    while k > j
+"""
+Find if a group (q, [...]) of operators in a word = [(p, [ops...])...] can
+be brought to the front then merged with an operator in the same word going
+back through it from the end. For example, in the word corresponding to
+A1 A_B1 A2, this would determine that the A1 at the beginning could be merged
+with the A2 at the end.
+
+Parameters:
+
+p : party vector at position j
+j : position of operator group in word
+word : the entire word
+n : the length of word
+
+Returns a pair (k, bool) indicating whether and where the operator group
+can be joined. Testing for j == k means the group can be joined with itself
+(so something like A1 A2 A1 can be simplified to A2).
+"""
+function can_join_back(p::PartyVec, j::Int, word::OpVector, n::Int)
+    for k in n : -1 : (j+1)
         q = word[k][1]
 
-        result = isect_or_equal(p, q)
-
-        if result === :equal
-            return (k, :join)
-        elseif result === :isect
-            return (k, :leave)
+        if p == q
+            return (k, true)
+        elseif parties_isect(p, q)
+            return (k, false)
         end
-
-        k -= 1
     end
 
-    return (j, :join)
+    return (j, true)
 end
 
-function min_party_cycle(word::OpVector, m=length(word))
-    if m < 2
-        return word
+"""
+Join operator group at index j in word with a group taken from later in word,
+if possible.
+"""
+function join_back!(j::Int, parties::Set{Int}, word::OpVector, n::Int)
+    (p, u) = word[j]
+
+    if parties_isect(parties, p)
+        return (j+1, n, 1, word)
     end
 
-    off_min = 0
+    (k, result) = can_join_back(p, j, word, n)
 
-    for off in 1:(m-1)
-        if isless_samelen(word, word, off, off_min, m, m)
-            off_min = off
+    if !result
+        union!(parties, p)
+        return (j+1, n, 1, word)
+    end
+
+    (coeff, w) = ((j == k) ? trace(u) : join_ops(word[k][2], u))
+
+    if coeff == 0
+        return (1, 0, 0, Id_word)
+    end
+
+    if (j != k)
+        deleteat!(word, k)
+        n -= 1
+
+        if isempty(w)
+            deleteat!(word, j)
+            return (j, n-1, coeff, word)
         end
     end
-    
-    head = view(word, 1:off_min)
-    tail = view(word, (off_min+1):m)
 
-    return vcat(tail, head)
+    word[j] = (p, w)
+    union!(parties, p)
+
+    return (j+1, n, coeff, word)
+end
+
+"""
+Join operator groups from the back of word to operator groups from the front,
+where possible.
+
+For example, given the word corresponding to A1 B1 A_B1 B2, this function
+returns the word corresponding to A1 B2 B1 A_B1.
+"""
+function join_back(word::OpVector)
+    coeff = 1
+    word = copy(word)
+    n = length(word)
+    parties = Set{Int}()
+    j = 1
+
+    while j <= n
+        (j, n, c, word) = join_back!(j, parties, word, n)
+        coeff *= c
+    end
+
+    return (coeff, word)
 end
 
 function ctrace(word::OpVector)
-    coeff = 1
-    word = copy(word)
-
-    n = length(word)
-    j = 1
-    parties = Set{Int}()
-
-    while j <= n
-        (p, u) = word[j]
-
-        if parties_isect(parties, p)
-            j += 1
-            continue
-        end
-
-        (k, result) = cjoin_or_leave(p, j, word, n)
-
-        if result === :join
-            if j == k
-                (c, w) = trace(u)
-
-                if c == 0
-                    return (0, Id_word)
-                end
-
-                coeff *= c
-                word[j] = (p, w)
-                j += 1
-                parties = union!(parties, p)
-            else
-                (c, w) = join_ops(word[k][2], u)
-
-                if c == 0
-                    return (0, Id_word)
-                end
-
-                coeff *= c
-                deleteat!(word, k)
-                n -= 1
-
-                if isempty(w)
-                    deleteat!(word, j)
-                    n -= 1
-                else
-                    word[j] = (p, w)
-                    j += 1
-                    parties = union!(parties, p)
-                end
-            end
-        else
-            j += 1
-            parties = union!(parties, p)
-        end
-    end
-
-    return (coeff, min_party_cycle(word, n))
+    (coeff, word) = join_back(word)
+    return (coeff, word)
 end
 
 function ctrace(m::Monomial)
