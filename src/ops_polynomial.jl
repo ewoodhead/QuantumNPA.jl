@@ -339,6 +339,7 @@ function conj_min(p::Polynomial; f=identity)
 end
 
 
+trace(x) = x
 
 function trace(m::Monomial)
     (c, tm) = ctrace(m)

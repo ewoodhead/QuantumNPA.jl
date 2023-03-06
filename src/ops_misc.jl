@@ -117,6 +117,8 @@ function num2str(x::Rational)
     return (b != 1) ? "$a/$b" : "$a"
 end
 
+num2str(n::Bool) = (n ? "1" : "-1")
+
 function csgn(x::Real, p::String = "+", m::String = "-")
     return (x >= 0) ? p : m
 end
