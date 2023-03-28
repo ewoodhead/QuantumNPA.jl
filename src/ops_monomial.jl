@@ -285,7 +285,7 @@ front. Input has to contain at least one element.
 
 For example, suppose we had the monomial A1 B1 and we added A_C1 to the front
 to get A_C1 A1 B1. remin! reorders the OpVector representing this to the
-vector corresponding to B1 A_C1 A1, which is the rearrangement of A_c1 A1 B1
+vector corresponding to B1 A_C1 A1, which is the rearrangement of A_C1 A1 B1
 that comes first lexicographically.
 """
 function remin!(word)
