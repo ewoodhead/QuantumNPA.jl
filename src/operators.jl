@@ -3,7 +3,7 @@
 RNum = Union{Integer,Rational}
 
 "Convert x to integer if it is rational with denominator 1."
-demote(x::Number) = x
+demote(x) = x
 demote(x::Rational) = ((denominator(x) == 1) ? numerator(x) : x)
 
 rmul(x::Number, y::Number) = x * y

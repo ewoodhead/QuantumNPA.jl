@@ -1,15 +1,26 @@
-struct Polynomial
-    terms::Dict{Monomial,Number}
+struct Polynomial{C,M}
+    cfsize::Tuple{Int,Int}
+    terms::Dict{M,C}
 end
 
-Polynomial() = Polynomial(Dict{Monomial,Number}())
+function Polynomial(cfsize=(1,1), C::Type=Number, M::Type=Monomial)
+    return Polynomial(cfsize, Dict{M,C}())
+end
 
-Polynomial(x::Number) = Polynomial((x != 0) ? Dict(Id => demote(x)) : Dict())
+function Polynomial(x::Number)
+    return Polynomial((1, 1), (x != 0) ? Dict(Id => demote(x)) : Dict())
+end
 
-Polynomial(x::Monomial) = Polynomial(Dict(x => 1))
+function Polynomial(x::Monomial)
+    return Polynomial{Number,Monomial}((1, 1), Dict(x => 1))
+end
 
-function Polynomial(x::Number, y::Monomial)
-    return (x != 0) ? Polynomial(Dict(y => demote(x))) : Polynomial()
+function Polynomial(x, y)
+    if !iszero(x)
+        return Polynomial(size(x), Dict(y => demote(x)))
+    else
+        return Polynomial(size(x), typeof(x), typeof(y))
+    end
 end
 
 Polynomial(x::Polynomial) = x
@@ -30,22 +41,20 @@ function swap_mc(result)
         return nothing
     else
         ((m, c), state) = result
-        return (Pair{Number,Monomial}(c, m), state)
+        return ((c, m), state)
     end
 end
 
 Base.iterate(x::Polynomial) = swap_mc(iterate(x.terms))
-
 Base.iterate(x::Polynomial, state) = swap_mc(iterate(x.terms, state))
 
 
 
 Base.hash(p::Polynomial, h::UInt) = hash(p.terms, h)
+Base.getindex(x::Polynomial, y) = get(x.terms, y, 0)
 
-Base.getindex(x::Polynomial, y::Monomial) = get(x.terms, y, 0)
-
-function Base.setindex!(x::Polynomial, y::Number, z::Monomial)
-    if y == 0
+function Base.setindex!(x::Polynomial, y, z)
+    if iszero(y)
         delete!(x.terms, z)
     else
         x.terms[z] = demote(y)
@@ -103,6 +112,7 @@ end
 
 function add!(x::Polynomial, y::Polynomial)
     for (c, m) in y
+    println(c)
         x[m] += c
     end
 
@@ -117,7 +127,7 @@ function addmul!(x::Polynomial, y::Number, z::Number)
     return x
 end
 
-function addmul!(x::Polynomial, y::Number, z::Monomial)
+function addmul!(x::Polynomial, y, z)
     x[z] += y
     return x
 end

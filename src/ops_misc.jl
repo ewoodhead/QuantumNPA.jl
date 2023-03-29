@@ -146,6 +146,8 @@ function sgnnum(x::Number, p::String = "+", m::String = "-")
     end
 end
 
+firstcoeff2string(x) = "$x "
+
 function firstcoeff2string(x::Number)
     if x == 1
         return ""
@@ -156,6 +158,8 @@ function firstcoeff2string(x::Number)
         return "$s$xs "
     end
 end
+
+coeff2string(x) = " + $x "
 
 function coeff2string(x::Number)
     if x == 1
