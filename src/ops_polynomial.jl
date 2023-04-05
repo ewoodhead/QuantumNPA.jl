@@ -1,33 +1,56 @@
-struct Polynomial{C,M}
-    cfsize::Tuple{Int,Int}
-    terms::Dict{M,C}
+Scalar = Number
+Coefficient = Union{Scalar,AbstractVector,AbstractMatrix}
+
+struct Polynomial
+    cfsize::Tuple
+    terms::Dict{Monomial,Coefficient}
 end
 
-function Polynomial(cfsize=(1,1), C::Type=Number, M::Type=Monomial)
-    return Polynomial(cfsize, Dict{M,C}())
+function Polynomial(cfsize::Tuple=())
+    return Polynomial(cfsize, Dict{Coefficient,Monomial}())
 end
 
-function Polynomial(x::Number)
-    return Polynomial((1, 1), (x != 0) ? Dict(Id => demote(x)) : Dict())
+function Polynomial(x::Coefficient)
+    return Polynomial(size(x), !iszero(x) ? Dict(Id => demote(x)) : Dict())
 end
 
-function Polynomial(x::Monomial)
-    return Polynomial{Number,Monomial}((1, 1), Dict(x => 1))
+function Polynomial(m::Monomial)
+    return Polynomial((), Dict(m => 1))
 end
 
-function Polynomial(x, y)
-    if !iszero(x)
-        return Polynomial(size(x), Dict(y => demote(x)))
+function Polynomial(c::Coefficient, m::Monomial)
+    if !iszero(c)
+        return Polynomial(size(c), Dict(m => demote(c)))
     else
-        return Polynomial(size(x), typeof(x), typeof(y))
+        return Polynomial(size(c), typeof(c), typeof(m))
     end
 end
 
-Polynomial(x::Polynomial) = x
+Polynomial(p::Polynomial) = p
 
-function Polynomial(x::Base.Generator)
-    return Polynomial(Dict((m, demote(c)) for (c, m) in x))
+function Polynomial(x::Base.Generator; cfsize::Tuple=())
+    result = Iterators.peel(x)
+
+    if isnothing(result)
+        return Polynomial(cfsize)
+    else
+        ((c, m), rest) = result
+        sz = size(c)
+        terms = Dict(m => demote(c))
+
+        for (c, m) in rest
+            terms[m] = demote(c)
+        end
+
+        return Polynomial(sz, terms)
+    end
 end
+
+function Polynomial(x::Base.Generator, p::Polynomial)
+    return Polynomial(x, cfsize=p.cfsize)
+end
+
+
 
 new_polynomial(x) = Polynomial(x)
 new_polynomial(p::Polynomial) = copy(p)
@@ -48,21 +71,40 @@ end
 Base.iterate(x::Polynomial) = swap_mc(iterate(x.terms))
 Base.iterate(x::Polynomial, state) = swap_mc(iterate(x.terms, state))
 
-
-
 Base.hash(p::Polynomial, h::UInt) = hash(p.terms, h)
-Base.getindex(x::Polynomial, y) = get(x.terms, y, 0)
 
-function Base.setindex!(x::Polynomial, y, z)
-    if iszero(y)
-        delete!(x.terms, z)
+
+
+function zero_coeff(p::Polynomial)
+    cfsize = p.cfsize
+    
+    if cfsize === ()
+        return 0
     else
-        x.terms[z] = demote(y)
+        return zeros(Int, cfsize)
     end
 end
 
-function Base.copy(x::Polynomial)
-    return Polynomial(copy(x.terms))
+function Base.getindex(p::Polynomial, m)
+    terms = p.terms
+
+    if haskey(terms, m)
+        return terms[m]
+    else
+        return zero_coeff(p)
+    end
+end
+
+function Base.setindex!(p::Polynomial, c, m)
+    if iszero(c)
+        delete!(p.terms, m)
+    else
+        p.terms[m] = demote(c)
+    end
+end
+
+function Base.copy(p::Polynomial)
+    return Polynomial(p.cfsize, copy(p.terms))
 end
 
 
@@ -99,76 +141,115 @@ degree_less(n::Integer) = (x -> (degree(x) < n))
 
 
 
-"Add y to polynomial x, modifying x."
-function add!(x::Polynomial, y::Number)
-    x[Id] += y
-    return x
+function set_nonzero!(terms::Dict, c, m)
+    if iszero(c)
+        delete!(terms, m)
+    else
+        terms[m] = c
+    end
+end
+    
+
+function addmul!(p::Polynomial, c, m)
+    @assert size(c) === p.cfsize
+    return addmul_unsafe!(p, c, m)
 end
 
-function add!(x::Polynomial, y::Monomial)
-    x[y] += 1
-    return x
-end
-
-function add!(x::Polynomial, y::Polynomial)
-    for (c, m) in y
-    println(c)
-        x[m] += c
+function addmul_unsafe!(p::Polynomial, c, m)
+    if iszero(c)
+        return p
     end
 
-    return x
-end
+    terms = p.terms
 
-
-
-"Add y*z to the polynomial x, modifying x. y has to be a number."
-function addmul!(x::Polynomial, y::Number, z::Number)
-    x[Id] += y*z
-    return x
-end
-
-function addmul!(x::Polynomial, y, z)
-    x[z] += y
-    return x
-end
-
-function addmul!(x::Polynomial, y::Number, z::Polynomial)
-    for (c, m) in z
-        x[m] += c*y
+    if haskey(terms, m)
+        c += terms[m]
     end
 
-    return x
+    set_nonzero!(terms, c, m)
+
+    return p
 end
 
+function addmul!(p::Polynomial, x, q::Polynomial)
+    @assert p.cfsize === q.cfsize
 
-
-"Subtract y from polynomial x."
-function sub!(x::Polynomial, y::Number)
-    x[Id] -= y
-    return x
-end
-
-function sub!(x::Polynomial, y::Monomial)
-    x[y] -= 1
-    return x
-end
-
-function sub!(x::Polynomial, y::Polynomial)
-    for (c, m) in y
-        x[m] -= c
+    for (c, m) in q
+        addmul_unsafe!(p, c*x, m)
     end
 
-    return x
+    return p
 end
 
 
 
-function mul!(x::Polynomial, y::Number)
-    for (c, m) in x
-        x[m] = c*y
+function add!(p::Polynomial, q::Polynomial)
+    @assert p.cfsize === q.cfsize
+
+    for (c, m) in q
+        addmul_unsafe!(p, c, m)
     end
 
-    return x
+    return p
+end
+
+
+
+function submul!(p::Polynomial, c, m)
+    @assert size(c) === p.cfsize
+    return submul_unsafe!(p, c, m)
+end
+
+function submul_unsafe!(p::Polynomial, c, m)
+    if iszero(c)
+        return p
+    end
+
+    terms = p.terms
+
+    if haskey(terms, m)
+        c = terms[m] - c
+    else
+        c = -c
+    end
+
+    set_nonzero!(terms, c, m)
+
+    return p
+end
+
+function submul!(p::Polynomial, x, q::Polynomial)
+    @assert p.cfsize === q.cfsize
+
+    for (c, m) in q
+        submul_unsafe!(p, c*x, m)
+    end
+
+    return p
+end
+
+
+
+function sub!(p::Polynomial, q::Polynomial)
+    @assert p.cfsize === q.cfsize
+
+    for (c, m) in q
+        submul_unsafe!(p, c, m)
+    end
+
+    return p
+end
+
+
+
+function mul!(p::Polynomial, x::Number)
+    if !iszero(x)
+        for (c, m) in p
+            p[m] = c*x
+        end
+    end
+
+    return p
 end
 
 
@@ -188,92 +269,110 @@ psum(m::Monomial) = Polynomial(m)
 
 
 
-Base.:+(x::Number, y::Monomial) = add!(Polynomial(y), x)
-Base.:+(x::Monomial, y::Number) = add!(Polynomial(x), y)
+
+# Binary addition.
 
 function Base.:+(x::Monomial, y::Monomial)
-    return Polynomial((x != y) ? Dict(x => 1, y => 1) : Dict(x => 2))
+    return Polynomial((), (x != y) ? Dict(x => 1, y => 1) : Dict(x => 2))
 end
 
-Base.:+(x::Number, y::Polynomial) = add!(copy(y), x)
-Base.:+(x::Polynomial, y::Number) = add!(copy(x), y)
-
-Base.:+(x::Monomial, y::Polynomial) = add!(copy(y), x)
-Base.:+(x::Polynomial, y::Monomial) = add!(copy(x), y)
+Base.:+(m::Monomial, p::Polynomial) = addmul!(copy(p), 1, m)
+Base.:+(p::Polynomial, m::Monomial) = addmul!(copy(p), 1, m)
 
 Base.:+(x::Polynomial, y::Polynomial) = add!(copy(x), y)
 
 
 
-Base.:-(x::Monomial) = Polynomial(Dict(x => -1))
-Base.:-(x::Polynomial) = Polynomial((-c, m) for (c, m) in x)
+# Unary negation.
+
+Base.:-(m::Monomial) = Polynomial(-1, m)
+Base.:-(p::Polynomial) = Polynomial(((-c, m) for (c, m) in p), p)
 
 
 
-Base.:-(x::Number, y::Monomial) = add!(-y, x)
-Base.:-(x::Monomial, y::Number) = sub!(Polynomial(x), y)
+# Binary subtraction.
 
 function Base.:-(x::Monomial, y::Monomial)
-    return Polynomial((x != y) ? Dict(x => 1, y => -1) : Dict())
+    terms = ((x != y) ? Dict(x => 1, y => -1) : Dict())
+    return Polynomial((), terms)
 end
 
-Base.:-(x::Number, y::Polynomial) = add!(-y, x)
-Base.:-(x::Polynomial, y::Number) = sub!(copy(x), y)
+Base.:-(m::Monomial, p::Polynomial) = sub!(Polynomial(m), p)
+Base.:-(p::Polynomial, m::Monomial) = submul!(copy(p), 1, m)
 
-Base.:-(x::Monomial, y::Polynomial) = sub!(Polynomial(x), y)
-Base.:-(x::Polynomial, y::Monomial) = sub!(copy(x), y)
-
-Base.:-(x::Polynomial, y::Polynomial) = sub!(copy(x), y)
+Base.:-(p::Polynomial, q::Polynomial) = sub!(copy(p), q)
 
 
 
-Base.:*(x::Number, y::Monomial) = Polynomial(x, y)
-Base.:*(x::Monomial, y::Number) = Polynomial(y, x)
+# Multiplication.
+
+Base.:*(c::Coefficient, m::Monomial) = Polynomial(c, m)
+Base.:*(m::Monomial, c::Coefficient) = Polynomial(c, m)
 
 function Base.:*(x::Monomial, y::Monomial)
     (c, m) = join_monomials(x, y)
-
     return (c != 1) ? Polynomial(c, m) : m
 end
 
-function Base.:*(x::Number, y::Polynomial)
-    return (x != 0) ? Polynomial((x*c, m) for (c, m) in y) : 0
+function Base.:*(x::Number, p::Polynomial)
+    return !iszero(x) ? Polynomial((x*c, m) for (c, m) in p) : 0
 end
 
-function Base.:*(x::Polynomial, y::Number)
-    return (y != 0) ? Polynomial((y*c, m) for (c, m) in x) : 0
+function Base.:*(p::Polynomial, x::Number)
+    return !iszero(x) ? Polynomial((x*c, m) for (c, m) in p) : 0
 end
 
-function Base.:*(x::Monomial, y::Polynomial)
-    z = Polynomial()
+function Base.:*(m::Monomial, p::Polynomial)
+    q = Polynomial(p.cfsize)
 
-    for (c, m) in y
-        addmul!(z, c, x*m)
+    for (c, mp) in p
+        addmul!(q, c, m*mp)
     end
 
-    return z
+    return q
 end
 
-function Base.:*(x::Polynomial, y::Monomial)
-    z = Polynomial()
+function Base.:*(p::Polynomial, m::Monomial)
+    q = Polynomial(p.cfsize, C)
 
-    for (c, m) in x
-        addmul!(z, c, m*y)
+    for (c, mp) in p
+        addmul!(q, c, mp*m)
     end
 
-    return z
+    return q
 end
 
-function Base.:*(x::Polynomial, y::Polynomial)
-    z = Polynomial()
+cf_mul_size(::Tuple{}, ::Tuple{}) = ()
+cf_mul_size(::Tuple{}, x) = x
+cf_mul_size(x, ::Tuple{}) = x
 
-    for (cx, mx) in x
-        for (cy, my) in y
-            addmul!(z, cx*cy, mx*my)
+function cf_mul_size((m,)::Tuple{Int}, (l, n)::Tuple{Int, Int})
+    @assert l == 1
+    return (m, n)
+end
+
+function cf_mul_size((m, l)::Tuple{Int,Int}, (n,)::Tuple{Int})
+    @assert l == 1
+    return (m, n)
+end
+
+function cf_mul_size((m, k)::Tuple{Int,Int}, (l, n)::Tuple{Int,Int})
+    @assert k == l
+    return (m, n)
+end
+
+
+
+function Base.:*(p::Polynomial, q::Polynomial)
+    r = Polynomial(cf_mul_size(p.cfsize, q.cfsize))
+
+    for (cp, mp) in p
+        for (cq, mq) in q
+            addmul!(r, cp*cq, mp*mq)
         end
     end
 
-    return z
+    return r
 end
 
 
