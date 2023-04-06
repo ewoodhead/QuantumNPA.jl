@@ -1,10 +1,16 @@
 Scalar = Number
 Coefficient = Union{Scalar,AbstractVector,AbstractMatrix}
 
+
+
 struct Polynomial
     cfsize::Tuple
     terms::Dict{Monomial,Coefficient}
 end
+
+
+
+# Alternative constructors.
 
 function Polynomial(cfsize::Tuple=())
     return Polynomial(cfsize, Dict{Coefficient,Monomial}())
@@ -75,6 +81,8 @@ Base.hash(p::Polynomial, h::UInt) = hash(p.terms, h)
 
 
 
+# Make it possible to access/assign polynomial coefficients via [] accessor.
+
 function zero_coeff(p::Polynomial)
     cfsize = p.cfsize
     
@@ -103,11 +111,15 @@ function Base.setindex!(p::Polynomial, c, m)
     end
 end
 
+
+
 function Base.copy(p::Polynomial)
     return Polynomial(p.cfsize, copy(p.terms))
 end
 
 
+
+# Default printing of polynomials at the REPL.
 
 function Base.show(io::IO, p::Polynomial)
     if isempty(p)
@@ -122,6 +134,8 @@ function Base.show(io::IO, p::Polynomial)
         end
     end
 end
+
+
 
 """
 Degree of a polynomial.
@@ -141,6 +155,7 @@ degree_less(n::Integer) = (x -> (degree(x) < n))
 
 
 
+"Delete entry m in terms if c is zero, otherwise set terms[m] = c."
 function set_nonzero!(terms::Dict, c, m)
     if iszero(c)
         delete!(terms, m)
@@ -150,12 +165,15 @@ function set_nonzero!(terms::Dict, c, m)
 end
     
 
-function addmul!(p::Polynomial, c, m)
+
+# Low level functions to add to a polynomial.
+
+function addmul!(p::Polynomial, c::Coefficient, m::Monomial)
     @assert size(c) === p.cfsize
     return addmul_unsafe!(p, c, m)
 end
 
-function addmul_unsafe!(p::Polynomial, c, m)
+function addmul_unsafe!(p::Polynomial, c::Coefficient, m::Monomial)
     if iszero(c)
         return p
     end
@@ -171,17 +189,15 @@ function addmul_unsafe!(p::Polynomial, c, m)
     return p
 end
 
-function addmul!(p::Polynomial, x, q::Polynomial)
+function addmul!(p::Polynomial, c::Coefficient, q::Polynomial)
     @assert p.cfsize === q.cfsize
 
-    for (c, m) in q
-        addmul_unsafe!(p, c*x, m)
+    for (cq, m) in q
+        addmul_unsafe!(p, cq*c, m)
     end
 
     return p
 end
-
-
 
 function add!(p::Polynomial, q::Polynomial)
     @assert p.cfsize === q.cfsize
@@ -194,6 +210,8 @@ function add!(p::Polynomial, q::Polynomial)
 end
 
 
+
+# Low level functions to subtract from a polynomial.
 
 function submul!(p::Polynomial, c, m)
     @assert size(c) === p.cfsize
@@ -228,8 +246,6 @@ function submul!(p::Polynomial, x, q::Polynomial)
     return p
 end
 
-
-
 function sub!(p::Polynomial, q::Polynomial)
     @assert p.cfsize === q.cfsize
 
@@ -242,11 +258,33 @@ end
 
 
 
-function mul!(p::Polynomial, x::Number)
-    if !iszero(x)
-        for (c, m) in p
-            p[m] = c*x
+# Multiply a polynomial by a coefficient, modifying the polynomial.
+# Multiplication of coefficients may not be commutative so we need separate
+# left and right multiplication functions.
+
+function mul!(p::Polynomial, c::Coefficient)
+    if !iszero(c)
+        terms = p.terms
+
+        for (m, cp) in terms
+            set_nonzero!(terms, cp*c, m)
         end
+    else
+        empty!(p.terms)
+    end
+
+    return p
+end
+
+function mul!(c::Coefficient, p::Polynomial)
+    if !iszero(c)
+        terms = p.terms
+
+        for (m, cp) in terms
+            set_nonzero!(terms, c*cp, m)
+        end
+    else
+        empty!(p.terms)
     end
 
     return p
@@ -256,9 +294,14 @@ end
 
 "Return a polynomial consisting of the sum of items in s."
 function psum(s)
-    z = Polynomial()
+    if isempty(s)
+        return Polynomial()
+    end
 
-    for x in s
+    (x, rest) = Iterators.peel(s)
+    z = new_polynomial(x)
+
+    for x in rest
         add!(z, x)
     end
 
@@ -266,7 +309,6 @@ function psum(s)
 end
 
 psum(m::Monomial) = Polynomial(m)
-
 
 
 
@@ -314,12 +356,22 @@ function Base.:*(x::Monomial, y::Monomial)
     return (c != 1) ? Polynomial(c, m) : m
 end
 
-function Base.:*(x::Number, p::Polynomial)
-    return !iszero(x) ? Polynomial((x*c, m) for (c, m) in p) : 0
+function Base.:*(c::Coefficient, p::Polynomial)
+    if iszero(c)
+        return 0
+    else
+        pairs = ((c*cp, m) for (cp, m) in p)
+        return Polynomial((c, m) for (c, m) in pairs if !iszero(c))
+    end
 end
 
-function Base.:*(p::Polynomial, x::Number)
-    return !iszero(x) ? Polynomial((x*c, m) for (c, m) in p) : 0
+function Base.:*(p::Polynomial, c::Coefficient)
+    if iszero(c)
+        return 0
+    else
+        pairs = ((cp*c, m) for (cp, m) in p)
+        return Polynomial((c, m) for (c, m) in pairs if !iszero(c))
+    end
 end
 
 function Base.:*(m::Monomial, p::Polynomial)
@@ -333,7 +385,7 @@ function Base.:*(m::Monomial, p::Polynomial)
 end
 
 function Base.:*(p::Polynomial, m::Monomial)
-    q = Polynomial(p.cfsize, C)
+    q = Polynomial(p.cfsize)
 
     for (c, mp) in p
         addmul!(q, c, mp*m)
@@ -407,20 +459,17 @@ end
 
 
 
-comm(x::Number, y::Number) = 0
-comm(x::Number, y::Monomial) = 0
-comm(x::Monomial, y::Number) = 0
+comm(x::Scalar, y::Scalar) = 0
+comm(x::Scalar, y::Monomial) = 0
+comm(x::Monomial, y::Scalar) = 0
 comm(x, y) = x*y - y*x
 
-acomm(x::Number, y::Number) = 2*rmul(x, y)
-acomm(x::Number, y::Monomial) = Polynomial(2*x, y)
-acomm(x::Monomial, y::Number) = Polynomial(2*y, x)
+acomm(x::Scalar, y::Scalar) = 2*rmul(x, y)
+acomm(x::Scalar, y::Monomial) = Polynomial(2*x, y)
+acomm(x::Monomial, y::Scalar) = Polynomial(2*y, x)
 acomm(x, y) = x*y + y*x
 
 
-
-Base.:(==)(x::Number, y::Polynomial) = isempty(y - x)
-Base.:(==)(x::Polynomial, y::Number) = isempty(x - y)
 
 Base.:(==)(x::Monomial, y::Polynomial) = isempty(y - x)
 Base.:(==)(x::Polynomial, y::Monomial) = isempty(x - y)
