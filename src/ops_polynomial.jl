@@ -471,7 +471,7 @@ comm(x, y) = x*y - y*x
 
 acomm(x::Scalar, y::Scalar) = 2*rmul(x, y)
 acomm(x::Scalar, m::Monomial) = Polynomial(2*x, m)
-acomm(x::Monomial, m::Scalar) = Polynomial(2*m, x)
+acomm(m::Monomial, x::Scalar) = Polynomial(2*x, m)
 acomm(x, y) = x*y + y*x
 
 
