@@ -41,8 +41,7 @@ coefficients(p::Polynomial) = values(p.terms)
 
 PartyMonomials = Dict{PartyVec,Set{Monomial}}
 
-function add_monomials!(table::PartyMonomials,
-                        itr)
+function add_monomials!(table::PartyMonomials, itr)
     for x in itr
         add_monomials!(table, x)
     end
@@ -50,8 +49,7 @@ function add_monomials!(table::PartyMonomials,
     return table
 end
 
-function add_monomials!(table::PartyMonomials,
-                        p::Polynomial)
+function add_monomials!(table::PartyMonomials, p::Polynomial)
     for m in monomials(p)
         add_monomials!(table, m)
     end
@@ -60,8 +58,7 @@ function add_monomials!(table::PartyMonomials,
 end
 
 "Update table of parties -> monomials with operators in a given monomial."
-function add_monomials!(table::PartyMonomials,
-                        m::Monomial)
+function add_monomials!(table::PartyMonomials, m::Monomial)
     for (p, ops) in m
         if !haskey(table, p)
             table[p] = Set{Monomial}()
