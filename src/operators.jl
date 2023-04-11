@@ -6,11 +6,11 @@ RNum = Union{Integer,Rational}
 demote(x) = x
 demote(x::Rational) = ((denominator(x) == 1) ? numerator(x) : x)
 
-rmul(x::Number, y::Number) = x * y
+rmul(x, y) = x * y
 rmul(x::Integer, y::Rational) = demote(x*y)
 rmul(x::Rational, y::Integer) = demote(x*y)
 
-rdiv(x::Number, y::Number) = x / y
+rdiv(x, y) = x / y
 rdiv(x::RNum, y::RNum) = demote(x//y)
 
 

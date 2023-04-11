@@ -77,8 +77,13 @@ end
 Base.iterate(x::Polynomial) = swap_mc(iterate(x.terms))
 Base.iterate(x::Polynomial, state) = swap_mc(iterate(x.terms, state))
 
+
+
 Base.hash(p::Polynomial, h::UInt) = hash(p.terms, h)
 
+
+
+Base.iszero(p::Polynomial) = isempty(p.terms)
 
 
 # Make it possible to access/assign polynomial coefficients via [] accessor.
@@ -459,31 +464,31 @@ end
 
 
 
-comm(x::Scalar, y::Scalar) = 0
-comm(x::Scalar, y::Monomial) = 0
-comm(x::Monomial, y::Scalar) = 0
+comm(::Scalar, ::Scalar) = 0
+comm(::Scalar, ::Monomial) = 0
+comm(::Monomial, ::Scalar) = 0
 comm(x, y) = x*y - y*x
 
 acomm(x::Scalar, y::Scalar) = 2*rmul(x, y)
-acomm(x::Scalar, y::Monomial) = Polynomial(2*x, y)
-acomm(x::Monomial, y::Scalar) = Polynomial(2*y, x)
+acomm(x::Scalar, m::Monomial) = Polynomial(2*x, m)
+acomm(x::Monomial, m::Scalar) = Polynomial(2*m, x)
 acomm(x, y) = x*y + y*x
 
 
 
-Base.:(==)(x::Monomial, y::Polynomial) = isempty(y - x)
-Base.:(==)(x::Polynomial, y::Monomial) = isempty(x - y)
+Base.:(==)(m::Monomial, p::Polynomial) = iszero(p - m)
+Base.:(==)(p::Polynomial, m::Monomial) = iszero(p - m)
 
-Base.:(==)(x::Polynomial, y::Polynomial) = isempty(x - y)
+Base.:(==)(p::Polynomial, q::Polynomial) = iszero(p - q)
 
 
 
-function Base.conj(x::Polynomial)
-    return Polynomial((conj(c), conj(m)) for (c, m) in x)
+function Base.conj(p::Polynomial)
+    return Polynomial((conj(c), conj(m)) for (c, m) in p)
 end
 
-function Base.adjoint(x::Polynomial)
-    return Polynomial((adjoint(c), adjoint(m)) for (c, m) in x)
+function Base.adjoint(p::Polynomial)
+    return Polynomial((adjoint(c), adjoint(m)) for (c, m) in p)
 end
 
 Base.zero(::Polynomial) = Polynomial()
