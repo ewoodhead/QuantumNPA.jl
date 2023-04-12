@@ -28,7 +28,7 @@ function Polynomial(c::Coefficient, m::Monomial)
     if !iszero(c)
         return Polynomial(size(c), Dict(m => demote(c)))
     else
-        return Polynomial(size(c), typeof(c), typeof(m))
+        return Polynomial(size(c))
     end
 end
 
