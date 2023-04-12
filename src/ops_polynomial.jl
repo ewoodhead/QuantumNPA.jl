@@ -173,12 +173,12 @@ end
 
 # Low level functions to add to a polynomial.
 
-function addmul!(p::Polynomial, c::Coefficient, m::Monomial)
+function add!(p::Polynomial, c::Coefficient, m::Monomial)
     @assert size(c) === p.cfsize
-    return addmul_unsafe!(p, c, m)
+    return add_unsafe!(p, c, m)
 end
 
-function addmul_unsafe!(p::Polynomial, c::Coefficient, m::Monomial)
+function add_unsafe!(p::Polynomial, c::Coefficient, m::Monomial)
     if iszero(c)
         return p
     end
@@ -194,11 +194,11 @@ function addmul_unsafe!(p::Polynomial, c::Coefficient, m::Monomial)
     return p
 end
 
-function addmul!(p::Polynomial, c::Coefficient, q::Polynomial)
+function add!(p::Polynomial, c::Coefficient, q::Polynomial)
     @assert p.cfsize === q.cfsize
 
     for (cq, m) in q
-        addmul_unsafe!(p, cq*c, m)
+        add_unsafe!(p, cq*c, m)
     end
 
     return p
@@ -208,7 +208,7 @@ function add!(p::Polynomial, q::Polynomial)
     @assert p.cfsize === q.cfsize
 
     for (c, m) in q
-        addmul_unsafe!(p, c, m)
+        add_unsafe!(p, c, m)
     end
 
     return p
@@ -218,12 +218,12 @@ end
 
 # Low level functions to subtract from a polynomial.
 
-function submul!(p::Polynomial, c, m)
+function sub!(p::Polynomial, c, m)
     @assert size(c) === p.cfsize
-    return submul_unsafe!(p, c, m)
+    return sub_unsafe!(p, c, m)
 end
 
-function submul_unsafe!(p::Polynomial, c, m)
+function sub_unsafe!(p::Polynomial, c, m)
     if iszero(c)
         return p
     end
@@ -241,11 +241,11 @@ function submul_unsafe!(p::Polynomial, c, m)
     return p
 end
 
-function submul!(p::Polynomial, x, q::Polynomial)
+function sub!(p::Polynomial, x, q::Polynomial)
     @assert p.cfsize === q.cfsize
 
     for (c, m) in q
-        submul_unsafe!(p, c*x, m)
+        sub_unsafe!(p, c*x, m)
     end
 
     return p
@@ -255,7 +255,7 @@ function sub!(p::Polynomial, q::Polynomial)
     @assert p.cfsize === q.cfsize
 
     for (c, m) in q
-        submul_unsafe!(p, c, m)
+        sub_unsafe!(p, c, m)
     end
 
     return p
@@ -323,8 +323,8 @@ function Base.:+(x::Monomial, y::Monomial)
     return Polynomial((), (x != y) ? Dict(x => 1, y => 1) : Dict(x => 2))
 end
 
-Base.:+(m::Monomial, p::Polynomial) = addmul!(copy(p), 1, m)
-Base.:+(p::Polynomial, m::Monomial) = addmul!(copy(p), 1, m)
+Base.:+(m::Monomial, p::Polynomial) = add!(copy(p), 1, m)
+Base.:+(p::Polynomial, m::Monomial) = add!(copy(p), 1, m)
 
 Base.:+(x::Polynomial, y::Polynomial) = add!(copy(x), y)
 
@@ -345,7 +345,7 @@ function Base.:-(x::Monomial, y::Monomial)
 end
 
 Base.:-(m::Monomial, p::Polynomial) = sub!(Polynomial(m), p)
-Base.:-(p::Polynomial, m::Monomial) = submul!(copy(p), 1, m)
+Base.:-(p::Polynomial, m::Monomial) = sub!(copy(p), 1, m)
 
 Base.:-(p::Polynomial, q::Polynomial) = sub!(copy(p), q)
 
@@ -383,7 +383,7 @@ function Base.:*(m::Monomial, p::Polynomial)
     q = Polynomial(p.cfsize)
 
     for (c, mp) in p
-        addmul!(q, c, m*mp)
+        add!(q, c, m*mp)
     end
 
     return q
@@ -393,7 +393,7 @@ function Base.:*(p::Polynomial, m::Monomial)
     q = Polynomial(p.cfsize)
 
     for (c, mp) in p
-        addmul!(q, c, mp*m)
+        add!(q, c, mp*m)
     end
 
     return q
@@ -425,7 +425,7 @@ function Base.:*(p::Polynomial, q::Polynomial)
 
     for (cp, mp) in p
         for (cq, mq) in q
-            addmul!(r, cp*cq, mp*mq)
+            add!(r, cp*cq, mp*mq)
         end
     end
 
