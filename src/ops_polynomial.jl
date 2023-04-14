@@ -4,20 +4,66 @@ Coefficient = Union{Scalar,AbstractVector,AbstractMatrix}
 
 
 struct Polynomial
-    cfsize::Tuple
+    cfsize::Union{Tuple{},Tuple{Int},Tuple{Int,Int}}
+    blockstruct::Vector{Tuple{Int,Int}}
     terms::Dict{Monomial,Coefficient}
 end
 
 
 
+# Determine blocksizes from cfsize
+
+blockstruct(::Tuple{}) = []
+blockstruct((x,)::Tuple{Int}) = [(x, x)]
+blockstruct(x::Tuple{Int,Int}) = [x]
+
+
+
+# Determine cfsize from blockstruct
+
+cfsize(blockstruct::Vector{Tuple{Int,Int}}) = reduce(.+, blockstruct)
+
+
+
 # Alternative constructors.
 
-function Polynomial(cfsize::Tuple=())
-    return Polynomial(cfsize, Dict{Coefficient,Monomial}())
+# Constructors with subsets of the struct fields (cfsize, blockstruct,
+# terms).
+
+function Polynomial(cfsize::Tuple, terms::Dict{Monomial,Coefficient})
+    return Polynomial(cfsize, blockstruct(cfsize), terms)
 end
 
+function Polynomial(blockstruct::Vector{Tuple{Int,Int}},
+                    terms::Dict{Monomial,Coefficient})
+    return Polynomial(cfsize(blockstruct), blockstruct, terms)
+end
+
+function Polynomial(cfsize::Tuple, blockstruct::Vector{Tuple{Int,Int}})
+    return Polynomial(cfsize,
+                      blockstruct,
+                      Dict{Coefficient,Monomial}())
+end
+
+Polynomial(cfsize::Tuple=()) = Polynomial(cfsize, blockstruct(cfsize))
+
+function Polynomial(blockstruct::Vector{Tuple{Int,Int}})
+    return Polynomial(cfsize(blockstruct), blockstruct)
+end
+
+
+
+# Constructors to create polynomials out of coefficients and monomials.
+
 function Polynomial(x::Coefficient)
-    return Polynomial(size(x), !iszero(x) ? Dict(Id => demote(x)) : Dict())
+    cfsize = size(x)
+    terms = (!iszero(x) ? Dict(Id => demote(x)) : Dict())
+    return Polynomial(cfsize, blockstruct(cfsize), terms)
+end
+
+function Polynomial(x::BlockDiagonal)
+    terms = (!iszero(x) ? Dict(Id => demote(x)) : Dict())
+    return Polynomial(size(x), blockstruct(x), terms)
 end
 
 function Polynomial(m::Monomial)
@@ -26,7 +72,8 @@ end
 
 function Polynomial(c::Coefficient, m::Monomial)
     if !iszero(c)
-        return Polynomial(size(c), Dict(m => demote(c)))
+        return Polynomial(size(c),
+                          Dict{Monomial,Coefficient}(m => demote(c)))
     else
         return Polynomial(size(c))
     end
@@ -57,6 +104,15 @@ function Polynomial(x::Base.Generator, p::Polynomial)
 end
 
 
+
+# Accessors.
+
+Base.size(p::Polynomial) = p.cfsize
+blocksizes(p::Polynomial) = p.blockstruct
+
+
+
+# Construct a new polynomial out of arg that can be safely modified.
 
 new_polynomial(x) = Polynomial(x)
 new_polynomial(p::Polynomial) = copy(p)
@@ -118,8 +174,11 @@ end
 
 
 
+# Copy a polynomial. We need to copy the dictionary of terms since these are
+# often mutated, but not the others.                      
+                      
 function Base.copy(p::Polynomial)
-    return Polynomial(p.cfsize, copy(p.terms))
+    return Polynomial(p.cfsize, p.blockstruct, copy(p.terms))
 end
 
 
