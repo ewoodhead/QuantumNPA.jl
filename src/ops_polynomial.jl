@@ -1,27 +1,30 @@
 Scalar = Number
 Coefficient = Union{Scalar,AbstractVector,AbstractMatrix}
+CfSize = Union{Tuple{},Tuple{Int},Tuple{Int,Int}}
+BlockStruct = Vector{Tuple{Int,Int}}
+Terms = Dict{Monomial,Coefficient}
 
 
 
 struct Polynomial
-    cfsize::Union{Tuple{},Tuple{Int},Tuple{Int,Int}}
-    blockstruct::Vector{Tuple{Int,Int}}
-    terms::Dict{Monomial,Coefficient}
+    cfsize::CfSize
+    blockstruct::BlockStruct
+    terms::Terms
 end
 
 
 
 # Determine blocksizes from cfsize
 
-blockstruct(::Tuple{}) = []
-blockstruct((x,)::Tuple{Int}) = [(x, x)]
-blockstruct(x::Tuple{Int,Int}) = [x]
+blockstruct(::Tuple{}) = BlockStruct([])
+blockstruct((x,)::Tuple{Int}) = BlockStruct([(x, x)])
+blockstruct(x::Tuple{Int,Int}) = BlockStruct([x])
 
 
 
 # Determine cfsize from blockstruct
 
-cfsize(blockstruct::Vector{Tuple{Int,Int}}) = reduce(.+, blockstruct)
+cfsize(blockstruct::BlockStruct) = reduce(.+, blockstruct)
 
 
 
@@ -30,24 +33,21 @@ cfsize(blockstruct::Vector{Tuple{Int,Int}}) = reduce(.+, blockstruct)
 # Constructors with subsets of the struct fields (cfsize, blockstruct,
 # terms).
 
-function Polynomial(cfsize::Tuple, terms::Dict{Monomial,Coefficient})
+function Polynomial(cfsize::CfSize, terms::Terms)
     return Polynomial(cfsize, blockstruct(cfsize), terms)
 end
 
-function Polynomial(blockstruct::Vector{Tuple{Int,Int}},
-                    terms::Dict{Monomial,Coefficient})
+function Polynomial(blockstruct::BlockStruct, terms::Terms)
     return Polynomial(cfsize(blockstruct), blockstruct, terms)
 end
 
-function Polynomial(cfsize::Tuple, blockstruct::Vector{Tuple{Int,Int}})
-    return Polynomial(cfsize,
-                      blockstruct,
-                      Dict{Coefficient,Monomial}())
+function Polynomial(cfsize::CfSize, blockstruct::BlockStruct)
+    return Polynomial(cfsize, blockstruct, Terms())
 end
 
-Polynomial(cfsize::Tuple=()) = Polynomial(cfsize, blockstruct(cfsize))
+Polynomial(cfsize::CfSize=()) = Polynomial(cfsize, blockstruct(cfsize))
 
-function Polynomial(blockstruct::Vector{Tuple{Int,Int}})
+function Polynomial(blockstruct::BlockStruct)
     return Polynomial(cfsize(blockstruct), blockstruct)
 end
 
@@ -57,23 +57,22 @@ end
 
 function Polynomial(x::Coefficient)
     cfsize = size(x)
-    terms = (!iszero(x) ? Dict(Id => demote(x)) : Dict())
+    terms = (!iszero(x) ? Terms(Id => demote(x)) : Terms())
     return Polynomial(cfsize, blockstruct(cfsize), terms)
 end
 
 function Polynomial(x::BlockDiagonal)
-    terms = (!iszero(x) ? Dict(Id => demote(x)) : Dict())
+    terms = (!iszero(x) ? Terms(Id => demote(x)) : Terms())
     return Polynomial(size(x), blockstruct(x), terms)
 end
 
 function Polynomial(m::Monomial)
-    return Polynomial((), Dict(m => 1))
+    return Polynomial((), Terms(m => 1))
 end
 
 function Polynomial(c::Coefficient, m::Monomial)
     if !iszero(c)
-        return Polynomial(size(c),
-                          Dict{Monomial,Coefficient}(m => demote(c)))
+        return Polynomial(size(c), Terms(m => demote(c)))
     else
         return Polynomial(size(c))
     end
@@ -81,7 +80,7 @@ end
 
 Polynomial(p::Polynomial) = p
 
-function Polynomial(x::Base.Generator; cfsize::Tuple=())
+function Polynomial(x::Base.Generator; cfsize::CfSize=())
     result = Iterators.peel(x)
 
     if isnothing(result)
@@ -89,7 +88,7 @@ function Polynomial(x::Base.Generator; cfsize::Tuple=())
     else
         ((c, m), rest) = result
         sz = size(c)
-        terms = Dict(m => demote(c))
+        terms = Terms(m => demote(c))
 
         for (c, m) in rest
             terms[m] = demote(c)
@@ -108,7 +107,7 @@ end
 # Accessors.
 
 Base.size(p::Polynomial) = p.cfsize
-blocksizes(p::Polynomial) = p.blockstruct
+BlockDiagonals.blocksizes(p::Polynomial) = p.blockstruct
 
 
 
@@ -142,6 +141,7 @@ Base.hash(p::Polynomial, h::UInt) = hash(p.terms, h)
 Base.iszero(p::Polynomial) = isempty(p.terms)
 
 
+
 # Make it possible to access/assign polynomial coefficients via [] accessor.
 
 function zero_coeff(p::Polynomial)
@@ -171,6 +171,9 @@ function Base.setindex!(p::Polynomial, c, m)
         p.terms[m] = demote(c)
     end
 end
+
+"Test if monomial m appears in polynomial p."
+hasmonomial(p::Polynomial, m::Monomial) = haskey(p.terms, m)
 
 
 
@@ -220,7 +223,7 @@ degree_less(n::Integer) = (x -> (degree(x) < n))
 
 
 "Delete entry m in terms if c is zero, otherwise set terms[m] = c."
-function set_nonzero!(terms::Dict, c, m)
+function set_nonzero!(terms::Terms, c, m)
     if iszero(c)
         delete!(terms, m)
     else
@@ -379,7 +382,7 @@ psum(m::Monomial) = Polynomial(m)
 # Binary addition.
 
 function Base.:+(x::Monomial, y::Monomial)
-    return Polynomial((), (x != y) ? Dict(x => 1, y => 1) : Dict(x => 2))
+    return Polynomial((), (x != y) ? Terms(x => 1, y => 1) : Terms(x => 2))
 end
 
 Base.:+(m::Monomial, p::Polynomial) = add!(copy(p), 1, m)
@@ -399,7 +402,7 @@ Base.:-(p::Polynomial) = Polynomial(((-c, m) for (c, m) in p), p)
 # Binary subtraction.
 
 function Base.:-(x::Monomial, y::Monomial)
-    terms = ((x != y) ? Dict(x => 1, y => -1) : Dict())
+    terms = ((x != y) ? Terms(x => 1, y => -1) : Terms())
     return Polynomial((), terms)
 end
 
@@ -439,23 +442,23 @@ function Base.:*(p::Polynomial, c::Coefficient)
 end
 
 function Base.:*(m::Monomial, p::Polynomial)
-    q = Polynomial(p.cfsize)
+    result = Polynomial(p.cfsize)
 
     for (c, mp) in p
-        add!(q, c, m*mp)
+        add!(result, c, m*mp)
     end
 
-    return q
+    return result
 end
 
 function Base.:*(p::Polynomial, m::Monomial)
-    q = Polynomial(p.cfsize)
+    result = Polynomial(p.cfsize)
 
     for (c, mp) in p
-        add!(q, c, mp*m)
+        add!(result, c, mp*m)
     end
 
-    return q
+    return result
 end
 
 cf_mul_size(::Tuple{}, ::Tuple{}) = ()

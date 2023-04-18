@@ -1,46 +1,16 @@
 Moments = Dict{Monomial}{BlockDiagonal}
 
-function sparse_sym_add!(matrix, i, j, val)
+function sym_add!(matrix, i, j, val)
     matrix[i, j] += val
 
     if i != j
         matrix[j, i] += val
     end
+
+    return matrix
 end
 
-function sparse_Nt(I, J, V, M, N)
-    return SparseMatrixCSC{Float64}{Int}(sparse(I, J, V, M, N))
-end
 
-function sparse_sym(N, i, j, val)
-    if i == j
-        return sparse_Nt([i], [i], [val], N, N)
-    else
-        return sparse_Nt([i, j], [j, i], [val, val], N, N)
-    end
-end
-
-function npa_moments_block(operators)
-    N = length(operators)
-    iops = collect(enumerate(operators))
-    block = Dict{Monomial,SparseMatrixCSC}()
-
-    for (i, x) in iops
-        for (j, y) in iops[i:end]
-            p = Polynomial(conj_min(conj(x)*y))
-
-            for (c, m) in p
-                if !haskey(block, m)
-                    block[m] = sparse_sym(N, i, j, c)
-                else
-                    sparse_sym_add!(block[m], i, j, c)
-                end
-            end
-        end
-    end
-
-    return block
-end
 
 """
 Construct the NPA moment matrix.
@@ -59,28 +29,34 @@ value is a dictionary with:
 """
 function npa_moments(operators)
     if isempty(operators)
-        return moments
+        return Polynomial((0, 0))
     end
 
-    if first(operators) isa Union{Number,Monomial,Polynomial}
-        operators = [operators]
+    if operators isa Vector{Vector{T}} where T
+        lengths = (length(x) for x in operators)
+        blockstruct = [(n, n) for n in lengths]
+        zeromoment = () -> BlockDiagonal([spzeros(n, n) for n in lengths])
+        iops = collect(enumerate(flatten(operators)))
+        moments = Polynomial(blockstruct)
+    else
+        N = length(operators)
+        zeromoment = () ->spzeros(N, N)
+        iops = collect(enumerate(operators))
+        moments = Polynomial((N, N))
     end
 
-    nblocks = length(operators)
-    bsizes = length.(operators)
-    blocks = npa_moments_block.(operators)
+    for (i, x) in iops
+        for (j, y) in iops[i:end]
+            p = Polynomial(conj_min(conj(x)*y))
 
-    ms = monomials(keys(block) for block in blocks)
-
-    moments = Moments()
-
-    for m in ms
-        blocks_m = [(haskey(block, m)
-                     ? block[m]
-                     : (n -> spzeros(n, n))(bsizes[b]))
-                    for (b, block) in enumerate(blocks)]
-
-        moments[m] = BlockDiagonal(blocks_m)
+            for (c, m) in p
+                if !hasmonomial(moments, m)
+                    moments[m] = sym_add!(zeromoment(), i, j, c)
+                else
+                    sym_add!(moments[m], i, j, c)
+                end
+            end
+        end
     end
 
     return moments
