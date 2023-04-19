@@ -154,7 +154,7 @@ function zero_coeff(p::Polynomial)
     end
 end
 
-function Base.getindex(p::Polynomial, m)
+function Base.getindex(p::Polynomial, m::Monomial)
     terms = p.terms
 
     if haskey(terms, m)
@@ -164,7 +164,7 @@ function Base.getindex(p::Polynomial, m)
     end
 end
 
-function Base.setindex!(p::Polynomial, c, m)
+function Base.setindex!(p::Polynomial, c::Coefficient, m::Monomial)
     if iszero(c)
         delete!(p.terms, m)
     else
@@ -571,3 +571,23 @@ function trace(m::Monomial)
 end
 
 trace(p::Polynomial) = psum(c*trace(m) for (c, m) in p)
+
+
+
+# Make polynomial with block-diagonal matrix coefficients.
+
+function blockdiag(polynomials::Vector{Polynomial},
+                   zerocf=((sz) -> zeros(Int, sz)))
+    blockstruct = size.(polynomials)
+    result = Polynomial(blockstruct)
+
+    for m in monomials(polynomials)
+        cs = Matrix{Number}[(hasmonomial(p, m) ? p[m] : zerocf(sz))
+                            for (p, sz) in zip(polynomials,
+                                               blockstruct)]
+        c = BlockDiagonal(cs)
+        result[m] = c
+    end
+
+    return result
+end

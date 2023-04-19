@@ -27,23 +27,10 @@ value is a dictionary with:
   * as values: block-diagonal sparse matrices with coefficients obtained
     from multiplying the input operators together.
 """
-function npa_moments(operators)
-    if isempty(operators)
-        return Polynomial((0, 0))
-    end
-
-    if operators isa Vector{Vector{T}} where T
-        lengths = (length(x) for x in operators)
-        blockstruct = [(n, n) for n in lengths]
-        zeromoment = () -> BlockDiagonal([spzeros(n, n) for n in lengths])
-        iops = collect(enumerate(flatten(operators)))
-        moments = Polynomial(blockstruct)
-    else
-        N = length(operators)
-        zeromoment = () ->spzeros(N, N)
-        iops = collect(enumerate(operators))
-        moments = Polynomial((N, N))
-    end
+function npa_moments(operators::Vector{<:Union{Monomial,Polynomial}})
+    N = length(operators)
+    iops = collect(enumerate(operators))
+    moments = Polynomial((N, N))
 
     for (i, x) in iops
         for (j, y) in iops[i:end]
@@ -51,7 +38,7 @@ function npa_moments(operators)
 
             for (c, m) in p
                 if !hasmonomial(moments, m)
-                    moments[m] = sym_add!(zeromoment(), i, j, c)
+                    moments[m] = sym_add!(spzeros(N, N), i, j, c)
                 else
                     sym_add!(moments[m], i, j, c)
                 end
@@ -59,7 +46,12 @@ function npa_moments(operators)
         end
     end
 
-    return moments
+    return moments    
+end
+
+function npa_moments(operators::Vector{Vector{T}} where T)
+    moments = npa_moments.(operators)
+    return blockdiag(moments, (sz) -> spzeros(Float64, sz))
 end
 
 
