@@ -1,5 +1,3 @@
-Moments = Dict{Monomial}{BlockDiagonal}
-
 function sym_add!(matrix, i, j, val)
     matrix[i, j] += val
 
@@ -54,19 +52,9 @@ function npa_moments(operators::Vector{Vector{T}} where T)
     return blockdiag(moments, (sz) -> spzeros(Float64, sz))
 end
 
+npa_moments(source, level) = npa_moments(ops_at_level(source, level))
 
 
-function SparseArrays.dropzeros!(matrix::BlockDiagonal)
-    for blk in blocks(matrix)
-        dropzeros!(blk)
-    end
-
-    return matrix
-end
-
-sp1x1(x) = (iszero(x)
-            ? spzeros(Float64, 1, 1)
-            : SparseMatrixCSC{Float64,Int}(sparse([1], [1], x)))
 
 """
 Generate the NPA relaxation for a given quantum optimisation problem (an
@@ -77,11 +65,10 @@ function npa2sdp(expr,
                  level_or_moments;
                  eq=[],
                  ge=[])
-    if level_or_moments isa Moments
+    if level_or_moments isa Polynomial
         moments = level_or_moments
     else
-        moments = npa_moments(ops_at_level([expr, eq, ge],
-                                           level_or_moments))
+        moments = npa_moments([expr, eq, ge], level_or_moments)
     end
     
     # Reduce constraints to canonical form
@@ -96,26 +83,14 @@ function npa2sdp(expr,
     # Reduce the objective expression, using constraints to eliminate
     # monomials
     expr = reduce_expr(expr, eq)
-    moments = deepcopy(moments)
 
     # Reduce moments using equality constraints.
-    for (m0, constraint) in eq
-        constraint = copy(constraint)
-        q = constraint[m0]
-        constraint[m0] = 0
-
-        moment0 = moments[m0]
-        delete!(moments, m0)
-
-        for (c, m) in constraint
-            moments[m] -= rdiv(c, q) * moment0
-        end
-    end
+    moments = reduce_exprs(moments, eq)
 
     # Reduce inequality constraints then absorb them into the moment matrix.
     # Basically, take the coefficients in the inequalities and add them as
     # 1x1 blocks to the moments.
-    ge = [reduce_expr(ineq, eq) for ineq in ge]
+    ge = reduce_exprs(ineq, eq)
 
     for (m, moment) in moments
         append!(blocks(moment),
@@ -137,21 +112,13 @@ end
 
 
 
-function bspzeros(bsizes)
-    return BlockDiagonal([spzeros(n, n) for n in bsizes])
-end
+#function bspzeros(bsizes)
+#    return BlockDiagonal([spzeros(n, n) for n in bsizes])
+#end
 
-function Base.zero(bm::BlockDiagonal)
-    return bspzeros(first.(blocksizes(bm)))
-end
-
-function BlockDiagonals.blocksizes(moments::Moments)
-    if isempty(moments)
-        return []
-    else
-        return first.(blocksizes(first(moments)[2]))
-    end
-end
+#function Base.zero(bm::BlockDiagonal)
+#    return bspzeros(first.(blocksizes(bm)))
+#end
 
 
 

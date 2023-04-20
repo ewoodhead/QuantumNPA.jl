@@ -36,6 +36,15 @@ function Base.show(io::IO, m::Monomial)
     end
 end
 
+
+
+# For compatibility with polynomials.
+
+Base.size(::Monomial) = ()
+BlockDiagonals.blocksizes(m::Monomial) = [(1, 1)]
+
+
+
 degree(x::Number) = !iszero(x) ? 0 : -Inf
 
 function degree(m::Monomial)

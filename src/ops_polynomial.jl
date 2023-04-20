@@ -16,9 +16,11 @@ end
 
 # Determine blocksizes from cfsize
 
-blockstruct(::Tuple{}) = BlockStruct([])
-blockstruct((x,)::Tuple{Int}) = BlockStruct([(x, x)])
-blockstruct(x::Tuple{Int,Int}) = BlockStruct([x])
+size2pair(::Tuple{}) = (1, 1)
+size2pair((x,)::Tuple{Int}) = (x, x)
+size2pair(x::Tuple{Int,Int}) = x
+
+blockstruct(x::CfSize) = BlockStruct([size2pair(x)])
 
 
 
@@ -574,19 +576,29 @@ trace(p::Polynomial) = psum(c*trace(m) for (c, m) in p)
 
 
 
-# Make polynomial with block-diagonal matrix coefficients.
 
-function blockdiag(polynomials::Vector{Polynomial},
-                   zerocf=((sz) -> zeros(Int, sz)))
-    blockstruct = size.(polynomials)
+ds_coeffs(m::Monomial, _) = [1;;]
+
+
+
+"""
+Construct a new polynomial whose coefficients are the direct sums of the
+coefficients in the input polynomials. The resulting polynomial has
+block-diagonal matrix coefficients.
+
+The optional argument zerocf can be used to determine precisely what zero
+matrix is used to fill otherwise missing blocks.
+"""
+function direct_sum(operators::Vector{<:Union{Monomial,Polynomial}},
+                    zerocf=((sz) -> zeros(Int, sz)))
+    blockstruct = vcat(blocksizes.(operators)...)
     result = Polynomial(blockstruct)
 
-    for m in monomials(polynomials)
-        cs = Matrix{Number}[(hasmonomial(p, m) ? p[m] : zerocf(sz))
-                            for (p, sz) in zip(polynomials,
-                                               blockstruct)]
-        c = BlockDiagonal(cs)
-        result[m] = c
+    for m in monomials(operators)
+        [dscoeffs(op, sz) for (op, sz) in zip(operators, blockstruct)]
+        
+        cs = vcat(c...)
+        result[m] = BlockDiagonal(cs)
     end
 
     return result

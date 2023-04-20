@@ -354,3 +354,7 @@ end
 function reduce_expr(expr, space::Linspace)
     return reduce_expr!(new_polynomial(expr), space)
 end
+
+function reduce_exprs(exprs, space::Linspace)
+    return [reduce_expr(expr, space) for expr in exprs]
+end
