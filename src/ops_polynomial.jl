@@ -80,6 +80,14 @@ function Polynomial(c::Coefficient, m::Monomial)
     end
 end
 
+function Polynomial(c::BlockDiagonal, m::Monomial)
+    if !iszero(c)
+        return Polynomial(blocksizes(c), Terms(m => demote(c)))
+    else
+        return Polynomial(blocksizes(c))
+    end
+end
+
 Polynomial(p::Polynomial) = p
 
 function Polynomial(x::Base.Generator; cfsize::CfSize=())
@@ -576,10 +584,27 @@ trace(p::Polynomial) = psum(c*trace(m) for (c, m) in p)
 
 
 
+matrix_coeff(c::Scalar) = [AbstractMatrix{Scalar}([c;;])]
+matrix_coeff(v::Vector{<:Scalar}) = [AbstractMatrix{Scalar}(reshape(v, :, 1))]
+matrix_coeff(x) = [AbstractMatrix{Scalar}(x)]
+matrix_coeff(x::BlockDiagonal) = [AbstractMatrix{Scalar}(b)
+                                  for b in blocks(x)]
 
-ds_coeffs(m::Monomial, _) = [1;;]
+function ds_coeffs(op::Monomial, blockstruct, m, zerocf)
+    return [matrix_coeff((op == m) ? 1 : 0)]
+end
+
+function ds_coeffs(p::Polynomial, blockstruct, m, zerocf)
+    if hasmonomial(p, m)
+        return matrix_coeff(p[m])
+    else
+        return zerocf.(blockstruct)
+    end
+end
 
 
+
+BlockVector = Vector{AbstractMatrix{Scalar}}
 
 """
 Construct a new polynomial whose coefficients are the direct sums of the
@@ -591,13 +616,13 @@ matrix is used to fill otherwise missing blocks.
 """
 function direct_sum(operators::Vector{<:Union{Monomial,Polynomial}},
                     zerocf=((sz) -> zeros(Int, sz)))
-    blockstruct = vcat(blocksizes.(operators)...)
-    result = Polynomial(blockstruct)
+    blockstructs = blocksizes.(operators)
+    result = Polynomial(collect(flatten(blockstructs)))
 
     for m in monomials(operators)
-        [dscoeffs(op, sz) for (op, sz) in zip(operators, blockstruct)]
-        
-        cs = vcat(c...)
+        css = [ds_coeffs(op, bs, m, zerocf)
+               for (op, bs) in zip(operators, blockstructs)]
+        cs = BlockVector(collect(flatten(css)))
         result[m] = BlockDiagonal(cs)
     end
 
