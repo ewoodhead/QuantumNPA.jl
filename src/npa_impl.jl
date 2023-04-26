@@ -25,52 +25,50 @@ value is a dictionary with:
   * as values: block-diagonal sparse matrices with coefficients obtained
     from multiplying the input operators together.
 """
-function npa_moments(operators::Vector{<:Union{Monomial,Polynomial}})
+function npa_moment(operators::Vector{<:Union{Monomial,Polynomial}})
     N = length(operators)
     iops = collect(enumerate(operators))
-    moments = Polynomial((N, N))
+    moment = Polynomial((N, N))
 
     for (i, x) in iops
         for (j, y) in iops[i:end]
             p = Polynomial(conj_min(conj(x)*y))
 
             for (c, m) in p
-                if !hasmonomial(moments, m)
-                    moments[m] = sym_add!(spzeros(N, N), i, j, c)
+                if !hasmonomial(moment, m)
+                    moment[m] = sym_add!(spzeros(N, N), i, j, c)
                 else
-                    sym_add!(moments[m], i, j, c)
+                    sym_add!(moment[m], i, j, c)
                 end
             end
         end
     end
 
-    return moments    
+    return moment
 end
 
-function npa_moments(operators::Vector{Vector{T}} where T)
-    moments = npa_moments.(operators)
-    return blockdiag(moments, (sz) -> spzeros(Float64, sz))
-end
+#function npa_moment(operators::Vector{Vector{T}} where T)
+#    moment = npa_moment.(operators)
+#    return blockdiag(moment, (sz) -> spzeros(Float64, sz))
+#end
 
-npa_moments(source, level) = npa_moments(ops_at_level(source, level))
+npa_moment(source, level) = npa_moment(npa_level(source, level))
 
 
 
 """
 Generate the NPA relaxation for a given quantum optimisation problem (an
 operator expr whose expectation we want to maximise with the expectation
-values of the operators constraints set to zero).
+values of the operator constraints set to zero).
+
+The result is 
 """
-function npa2sdp(expr,
-                 level_or_moments;
-                 eq=[],
-                 ge=[])
-    if level_or_moments isa Polynomial
-        moments = level_or_moments
-    else
-        moments = npa_moments([expr, eq, ge], level_or_moments)
-    end
-    
+function npa2sdp(expr, level; eq=[], ge=[])
+    moment = npa_moment([expr, eq, ge], level)
+    return npa2sdp(expr, moment, eq=eq, ge=ge)
+end
+
+function npa2sdp(expr, moment::Polynomial; eq=[], ge=[])
     # Reduce constraints to canonical form
     expr = conj_min(expr)
     eq = linspace(map(conj_min, eq))
@@ -81,44 +79,18 @@ function npa2sdp(expr,
     end
 
     # Reduce the objective expression, using constraints to eliminate
-    # monomials
+    # monomials.
     expr = reduce_expr(expr, eq)
 
     # Reduce moments using equality constraints.
-    moments = reduce_exprs(moments, eq)
+    moment = reduce_expr(moment, eq)
 
-    # Reduce inequality constraints then absorb them into the moment matrix.
-    # Basically, take the coefficients in the inequalities and add them as
-    # 1x1 blocks to the moments.
-    ge = reduce_exprs(ineq, eq)
-
-    for (m, moment) in moments
-        append!(blocks(moment),
-                [sp1x1(ineq[m]) for ineq in ge])
-    end
-
-    # Remove any zero coefficients that might be stored explicitly in the
-    # sparse matrices in the blocks.
-    # for matrix in values(moments)
-    #    dropzeros!(matrix)
-    # end
+    # Reduce inequality constraints then include them as inequalities along
+    # with the original moment matrix.
+    ge = reduce_exprs(ge, eq)
     
-    moments = Moments(m => mat
-                      for (m, mat) in moments
-                          if !iszero(mat))
-
-    return (expr, moments)
+    return (expr, vcat([moment], ge))
 end
-
-
-
-#function bspzeros(bsizes)
-#    return BlockDiagonal([spzeros(n, n) for n in bsizes])
-#end
-
-#function Base.zero(bm::BlockDiagonal)
-#    return bspzeros(first.(blocksizes(bm)))
-#end
 
 
 
@@ -138,40 +110,7 @@ end
 
 
 
-function expr2objective(expr, vars)
-    return expr[Id] + sum(c*vars[m] for (c, m) in expr if m != Id)
-end
-
-"""
-Convert moments returned by npa2sdp() to moments in a format used by JuMP.jl
-or Convex.jl.
-"""
-function moments2gamma(moments, vars)
-    if isempty(moments)
-        return []
-    end
-
-    n = nblocks(first(moments)[2])
-    gamma = Vector(undef, n)
-
-    for (m, moment) in moments
-        var = ((m != Id) ? vars[m] : 1)
-
-        for (b, g) in enumerate(blocks(moment))
-            if isassigned(gamma, b)
-                gamma[b] += g*var
-            else
-                gamma[b] = g*var
-            end
-        end
-    end
-
-    return gamma
-end
-
-
-
-function sdp2jump(expr, moments;
+function sdp2jump(expr, ineqs;
                   goal=:maximise,
                   solver=nothing,
                   verbose=nothing)
@@ -185,27 +124,29 @@ function sdp2jump(expr, moments;
     
     model = !isnothing(solver) ? Model(solver) : Model()
 
-    Z = [@variable(model, [1:n, 1:n], PSD) for n in blocksizes(moments)]
-
-    objective = (sum(LinearAlgebra.tr(s*G*Z[b])
-                     for (b, G) in enumerate(blocks(moments[Id])))
-                 + expr[Id])
+    Zs = [@variable(model, [1:m, 1:n], PSD)
+          for (m, n) in size_as_pair.(ineqs)]
     
+    Ids = (ineq[Id] for ineq in ineqs)
+    objective = (sum(LinearAlgebra.tr(s*m*z)
+                     for (m, z) in zip(Ids, Zs))
+                 + expr[Id])
+
     if maximise
         @objective(model, Min, objective)
     else
         @objective(model, Max, objective)
     end
 
-    for (m, moment) in moments
-        if m != Id
-            c = expr[m]
+    mons = collect(m for m in monomials(expr, ineqs) if !isidentity(m))
+
+    for m in mons
+        c = expr[m]
+        Fs = (ineq[m] for ineq in ineqs)
+        tr_term = sum(LinearAlgebra.tr(F*Z)
+                      for (F, Z) in zip(Fs, Zs))
             
-            @constraint(model,
-                        sum(LinearAlgebra.tr(F*Z[b])
-                            for (b, F) in enumerate(blocks(moment)))
-                        + s*c == 0)
-        end
+        @constraint(model, tr_term + s*c == 0)
     end
 
     set_verbosity!(model, verbose)

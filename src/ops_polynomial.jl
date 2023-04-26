@@ -20,6 +20,8 @@ size2pair(::Tuple{}) = (1, 1)
 size2pair((x,)::Tuple{Int}) = (x, x)
 size2pair(x::Tuple{Int,Int}) = x
 
+size_as_pair(x) = size2pair(size(x))
+
 blockstruct(x::CfSize) = BlockStruct([size2pair(x)])
 
 
