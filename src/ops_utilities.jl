@@ -171,15 +171,14 @@ function cglmp(d::Integer)
     PB = projector(2, 1:d, 1:2; full=true)
 
     d1 = d - 1
+    kmax = (div(d,2)-1)
 
-    function p(x, y, k)
-        return psum(PA[1+a, x] * PB[1+mod(a+k,d), y] for a in 0:d1)
-    end
+    p(x, y, k) = psum(PA[1+a, x] * PB[1+mod(a+k,d), y] for a in 0:d1)
 
-    return psum(mul!(p(1,1,k) + p(2,1,-k-1) + p(2,2,k) + p(1,2,-k)
-                     - p(1,1,-k-1) - p(2,1,k) - p(2,2,-k-1) - p(1,2,k+1),
-                     (1 - 2*k//d1))
-                for k in 0:(div(d,2)-1))
+    P(k) = (p(1,1,k) + p(2,1,-k-1) + p(2,2,k) + p(1,2,-k)
+            - p(1,1,-k-1) - p(2,1,k) - p(2,2,-k-1) - p(1,2,k+1))
+
+    return psum(mul!(P(k), (1 - 2*k//d1)) for k in 0:kmax)
 end
 
 

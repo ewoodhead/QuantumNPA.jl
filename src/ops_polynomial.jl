@@ -247,6 +247,8 @@ end
 
 # Low level functions to add to a polynomial.
 
+add!(p::Polynomial, m::Monomial) = add!(p, 1, m)
+
 function add!(p::Polynomial, c::Coefficient, m::Monomial)
     @assert size(c) === p.cfsize
     return add_unsafe!(p, c, m)
@@ -292,7 +294,9 @@ end
 
 # Low level functions to subtract from a polynomial.
 
-function sub!(p::Polynomial, c, m)
+sub!(p::Polynomial, m::Monomial) = sub!(p, 1, m)
+
+function sub!(p::Polynomial, c::Coefficient, m::Monomial)
     @assert size(c) === p.cfsize
     return sub_unsafe!(p, c, m)
 end

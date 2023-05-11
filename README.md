@@ -65,12 +65,12 @@ values you want, respectively, to set to and lower bound by zero. For
 example, to maximise `<A1>` subject to `<A1*(B1 + B2)> = 1.4` and `<A2*(B1 -
 B2)> = 1.4`:
 ```julia
-julia> npa_max(A1, 2, eq=[A1*(B1 + B2) - 1.4, A2*(B1 - B2) - 1.4])
+julia> npa_max(A1, 2, eq=[A1*(B1 + B2) - 1.4*Id, A2*(B1 - B2) - 1.4*Id])
 0.19800616634180992
 ```
 Maximise `<A1 + A2>` subject to `<A1 + 2*A2> <= 1 ` and `<2*A1 + A2> <= 1`:
 ```julia
-julia> npa_max(A1 + A2, 1, ge=[1 - A1 - 2*A2, 1 - 2*A1 - A2])
+julia> npa_max(A1 + A2, 1, ge=[Id - A1 - 2*A2, Id - 2*A1 - A2])
 0.6666666597867417
 ```
 Maximise `<A1 + A2>` subject to `<A1> = <A2>` and `<A1 + 2*A2> <= 1 `:
