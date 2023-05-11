@@ -134,14 +134,14 @@ G = sum(PA[a,1] * PB[b,1] * PE[2*(a-1) + b]
 # Ideal CHSH-violating correlations mixed with noise. N.B., the actual
 # constraints imposed are on the expectation values of the operators
 # in the array.
-constraints = [PA[1,1] - 0.5,
-               PA[1,2] - 0.5,
-               PB[1,1] - 0.5,
-               PB[1,2] - 0.5,
-               PA[1,1]*PB[1,1] - 0.25*(1 + p/sqrt(2)),
-               PA[1,1]*PB[1,2] - 0.25*(1 + p/sqrt(2)),
-               PA[1,2]*PB[1,1] - 0.25*(1 + p/sqrt(2)),
-               PA[1,2]*PB[1,2] - 0.25*(1 - p/sqrt(2))]
+constraints = [PA[1,1] - 0.5*Id,
+               PA[1,2] - 0.5*Id,
+               PB[1,1] - 0.5*Id,
+               PB[1,2] - 0.5*Id,
+               PA[1,1]*PB[1,1] - 0.25*(1 + p/sqrt(2))*Id,
+               PA[1,1]*PB[1,2] - 0.25*(1 + p/sqrt(2))*Id,
+               PA[1,2]*PB[1,1] - 0.25*(1 + p/sqrt(2))*Id,
+               PA[1,2]*PB[1,2] - 0.25*(1 - p/sqrt(2))*Id]
 
 # This returns about 0.7467 for p = 0.9 at level 2 using the default SCS
 # solver.
@@ -670,10 +670,10 @@ E1 = dichotomic(5, 1)
 objective = (1 + A1*E1)/2
 
 constraints = [A1, A2, B1, B2,
-               A1*B1 - 0.7,
-               A1*B2 - 0.7,
-               A2*B1 - 0.7,
-               A2*B2 + 0.7]
+               A1*B1 - 0.7*Id,
+               A1*B2 - 0.7*Id,
+               A2*B1 - 0.7*Id,
+               A2*B2 + 0.7*Id]
 ```
 Assuming these variable definitions, we can use the `operators()` function to
 immediately find all the level-one operators in the problem:
