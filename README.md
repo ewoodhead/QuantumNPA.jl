@@ -1134,3 +1134,12 @@ The fourth one is used to define multiplication of a number by a monomial in
 Base.:*(x::Number, y::Monomial) = Polynomial(x, y)
 Base.:*(x::Monomial, y::Number) = Polynomial(y, x)
 ```
+
+
+
+## Acknowledgements
+
+I started development of this library while a postdoc in the [Laboratoire
+d'Information Quantique](https://liq.ulb.ac.be) at the Université libre de
+Bruxelles in Belgium. Since November 2022 I have continued work on this
+project at [Quantinuum](https://www.quantinuum.com).
