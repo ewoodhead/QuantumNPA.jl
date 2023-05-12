@@ -325,6 +325,22 @@ julia> S^2
 4 Id - A1 A2 B1 B2 + A1 A2 B2 B1 + A2 A1 B1 B2 - A2 A1 B2 B1
 ```
 
+The above examples illustrate basic manipulation of monomials and polynomials
+of different kinds of operator expressions. Note that polynomials can also
+have matrix coefficients
+```julia
+julia> P = [1 0; 0 1] * Id + [0 1; 1 0] * A1
+[1 0; 0 1] Id + [0 1; 1 0] A1
+
+julia> Q = [1 2; 3 4] * Id + [5 6; 7 8] * B1
+[1 2; 3 4] Id + [5 6; 7 8] B1
+
+julia> P*Q
+[1 2; 3 4] Id + [3 4; 1 2] A1 + [5 6; 7 8] B1 + [7 8; 5 6] A1 B1
+```
+In this case, the dimensions of the coefficients of expressions that are
+added to, subtracted from, or multiplied with each other must match.
+
 The functions that create monomials and their parameters are
 ```julia
 dichotomic(party, input)
