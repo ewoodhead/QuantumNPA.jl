@@ -327,7 +327,7 @@ julia> S^2
 
 The above examples illustrate basic manipulation of monomials and polynomials
 of different kinds of operator expressions. Note that polynomials can also
-have matrix coefficients
+have matrix coefficients:
 ```julia
 julia> P = [1 0; 0 1] * Id + [0 1; 1 0] * A1
 [1 0; 0 1] Id + [0 1; 1 0] A1
@@ -339,7 +339,9 @@ julia> P*Q
 [1 2; 3 4] Id + [3 4; 1 2] A1 + [5 6; 7 8] B1 + [7 8; 5 6] A1 B1
 ```
 In this case, the dimensions of the coefficients of expressions that are
-added to, subtracted from, or multiplied with each other must match.
+added to, subtracted from, or multiplied with each other must
+match. (Polynomials with matrix coefficients are used by this library to
+represent the NPA moment matrix.)
 
 The functions that create monomials and their parameters are
 ```julia
