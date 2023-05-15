@@ -3,8 +3,6 @@ Sortable = Union{Base.Generator,
                  Base.KeySet,
                  Base.Iterators.Flatten}
 
-Base.sort(g::Sortable; kws...) = sort!([x for x in g]; kws...)
-
 "Return pairs (c, m) of monomials and coefficients of polynomial in order."
 function Base.sort(p::Polynomial)
     return sort!([(c, m) for (c, m) in p], by=(x -> x[2]))
