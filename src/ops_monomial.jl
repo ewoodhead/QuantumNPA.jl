@@ -1,26 +1,28 @@
+abstract type Monomial end
+
 OpVector = Vector{Tuple{PartyVec,Vector{Operator}}}
 
-struct Monomial
+struct OpProduct <: Monomial
     word::OpVector
 end
 
 Id_word = OpVector()
-Id = Monomial(Id_word)
+Id = OpProduct(Id_word)
 
-function Monomial(party, operator::Operator)
-    return Monomial([(party_vec(party), [operator])])
+function OpProduct(party, operator::Operator)
+    return OpProduct([(party_vec(party), [operator])])
 end
 
-isidentity(m::Monomial) = isempty(m)
+isidentity(m::OpProduct) = isempty(m)
 
-Base.iterate(m::Monomial) = iterate(m.word)
-Base.iterate(m::Monomial, state) = iterate(m.word, state)
+Base.iterate(m::OpProduct) = iterate(m.word)
+Base.iterate(m::OpProduct, state) = iterate(m.word, state)
 
-Base.length(m::Monomial) = length(m.word)
+Base.length(m::OpProduct) = length(m.word)
 
-Base.hash(m::Monomial, h::UInt) = hash(m.word, h)
+Base.hash(m::OpProduct, h::UInt) = hash(m.word, h)
 
-function Base.show(io::IO, m::Monomial)
+function Base.show(io::IO, m::OpProduct)
     if isidentity(m)
         print(io, "Id")
     else
@@ -40,14 +42,14 @@ end
 
 # For compatibility with polynomials.
 
-Base.size(::Monomial) = ()
-BlockDiagonals.blocksizes(m::Monomial) = [(1, 1)]
+Base.size(::OpProduct) = ()
+BlockDiagonals.blocksizes(m::OpProduct) = [(1, 1)]
 
 
 
 degree(x::Number) = !iszero(x) ? 0 : -Inf
 
-function degree(m::Monomial)
+function degree(m::OpProduct)
     result = 0
 
     for (_, ops) in m.word
@@ -59,11 +61,11 @@ end
 
 
 
-Base.:(==)(x::Number, y::Monomial) = (x == 1) && isempty(y)
+Base.:(==)(x::Number, y::OpProduct) = (x == 1) && isempty(y)
 
-Base.:(==)(x::Monomial, y::Number) = (y == 1) && isempty(x)
+Base.:(==)(x::OpProduct, y::Number) = (y == 1) && isempty(x)
 
-Base.:(==)(x::Monomial, y::Monomial) = (x.word == y.word)
+Base.:(==)(x::OpProduct, y::OpProduct) = (x.word == y.word)
 
 
 
@@ -178,7 +180,7 @@ when using the lexicographically first cycle as the representative of the
 trace. This way, for example, we represent trace(A2 A1 A_B1) with A2 A1 A_B1
 rather than A1 A_B1 A2.
 """
-function Base.isless(x::Monomial, y::Monomial)
+function Base.isless(x::OpProduct, y::OpProduct)
     deg_x = degree(x)
     deg_y = degree(y)
 
@@ -195,13 +197,13 @@ end
 
 
 
-Base.zero(m::Monomial) = 0
+Base.zero(m::OpProduct) = 0
 
 
 
 conj_min(x::Number) = real(x)
 
-conj_min(m::Monomial) = min(m, conj(m))
+conj_min(m::OpProduct) = min(m, conj(m))
 
 
 
@@ -374,9 +376,9 @@ end
 Concatenate two monomials. This is used later to decide what the result
 of multiplying two monomials is.
 """
-function join_monomials(x::Monomial, y::Monomial)
+function join_monomials(x::OpProduct, y::OpProduct)
     (c, word) = join_words(x.word, y.word)
-    return (c, Monomial(word))
+    return (c, OpProduct(word))
 end
 
 
@@ -395,8 +397,8 @@ function word_conj(word::OpVector)
     return result
 end
 
-Base.conj(m::Monomial) = Monomial(word_conj(m.word))
-Base.adjoint(m::Monomial) = Monomial(word_conj(m.word))
+Base.conj(m::OpProduct) = OpProduct(word_conj(m.word))
+Base.adjoint(m::OpProduct) = OpProduct(word_conj(m.word))
 
 
 
@@ -537,7 +539,7 @@ function ctrace(word::OpVector)
     return (coeff, min_cycle(word))
 end
 
-function ctrace(m::Monomial)
+function ctrace(m::OpProduct)
     (coeff, word) = ctrace(m.word)
-    return (coeff, Monomial(word))
+    return (coeff, OpProduct(word))
 end

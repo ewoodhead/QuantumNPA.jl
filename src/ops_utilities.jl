@@ -65,7 +65,7 @@ function add_monomials!(table::PartyMonomials, m::Monomial)
         end
 
         for o in ops
-            push!(table[p], Monomial(p, o))
+            push!(table[p], OpProduct(p, o))
         end
     end
 
@@ -93,10 +93,10 @@ function operators(p::Polynomial; by_party::Bool=false)
     end
 end
 
-"Return all the individual operators making up a monomial."
-function operators(m::Monomial; by_party::Bool=false)
+"Return all the individual operators making up an operator product."
+function operators(m::OpProduct; by_party::Bool=false)
     if !by_party
-        return Set{Monomial}(Monomial(p, o)
+        return Set{OpProduct}(OpProduct(p, o)
                              for (p, ops) in m for o in ops)
     else
         return add_monomials!(PartyMonomials(), m)

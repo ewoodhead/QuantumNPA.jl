@@ -46,7 +46,7 @@ Base.conj(x::Fourier) = Fourier(x.input, x.d - x.power, x.d)
 function fourier(party, input::Integer, power::Integer, d::Integer)
     @assert d > 0
     p = power % d
-    return (p != 0) ? Monomial(party, Fourier(input, p, d)) : Id
+    return (p != 0) ? OpProduct(party, Fourier(input, p, d)) : Id
 end
 
 function fourier(party, input::IndexRange, power::Integer, d::Integer)
@@ -177,7 +177,7 @@ function ketbra(party, outputl::Integer, outputr::Integer, input::Integer)
     op = ((outputl != outputr) ?
           KetBra(outputl, outputr, input) :
           Projector(outputl, input))
-    return Monomial(party, op)
+    return OpProduct(party, op)
 end
 
 
@@ -194,4 +194,4 @@ end
 
 
 
-@operator Zbff(index::Integer, conj::Bool) "Z$party$conj$index"
+@operator ZGeneric(index::Integer, conj::Bool) "Z$party$conj$index"

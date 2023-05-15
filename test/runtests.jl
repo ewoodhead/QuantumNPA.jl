@@ -54,7 +54,7 @@ result = (Id + PA11 + PA11 * UAc3 * UA2 * UAc1
 
 
 
-ZE = zbff(5, 1:2)
+ZE = zgeneric(5, 1:2)
 
 R = PA[1,1] * PB[2,2] * ZE[1] * ZE[2]
 

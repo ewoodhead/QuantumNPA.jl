@@ -228,7 +228,7 @@ function constructor_defs(make_constructors, name, fields, fieldnames)
 
     if mk_ctor
         mctor = :(function $(esc(lcname))(party, $(cargs...))
-                      return Monomial(party, $name($(fieldnames...)))
+                      return OpProduct(party, $name($(fieldnames...)))
                   end)
     else
         mctor = nothing
