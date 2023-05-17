@@ -97,14 +97,15 @@ function npa_level(ops::Set{Monomial}, n::Integer)
 
     ops = copy(ops)
     push!(ops, Id)
-    result = Set([Id])
+    result = Set{Monomial}([Id])
 
     while n > 0
-        result = filter(!iszero, Set(x*y for x in result for y in ops))
+        products = Set(x*y for x in result for y in ops)
+        result = Set{Monomial}(filter(!iszero, products))
         n -= 1
     end
 
-    return sort(result)
+    return sort(collect(result))
 end
 
 function npa_level(source, n::AbstractString)
@@ -120,5 +121,5 @@ function npa_level(ops::Dict{PartyVec,Set{Monomial}}, n::AbstractString)
         result = union!(result, ms)
     end
 
-    return sort(result)
+    return sort(collect(result))
 end
