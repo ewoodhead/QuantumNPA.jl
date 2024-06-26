@@ -1,5 +1,5 @@
 # Abstract type representing primitive operators.
-# Specific ones are defined in the file 
+# Specific ones are defined in the file
 abstract type Operator end
 
 # Default multiplication rule for operators, which can be specialised.
@@ -141,7 +141,7 @@ function stringfdef(name, fmt)
             return :(x.$f)
         end
     end
-    
+
     bindings = (:($f = $(fix_special(f))) for f in fieldnames)
 
     return :(function Base.string($(args...))
@@ -211,7 +211,7 @@ function ctor_ranges(lcname, fields, fieldnames)
         lfcall = :($lcname(party, $(fieldnames...)))
         lassgms = [:($a = $a) for a in fnames]
         comp = Expr(:comprehension, Expr(:generator, lfcall, lassgms...))
-        
+
         return :(function $lcname(party, $(nfields...))
                      return $comp
                  end)

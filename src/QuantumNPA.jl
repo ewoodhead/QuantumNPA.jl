@@ -9,6 +9,16 @@ export npa_min, npa_max, npa2sdp, sdp2jump, npa2jump,
     Monomial, Polynomial, monomials, coefficients, operators,
     cglmp
 
-include("qnpa.jl")
+using Base.Iterators #  flatten, zip (filter?)
+using BlockDiagonals
+using Combinatorics #  powerset
+using JuMP
+using LinearAlgebra
+using SCS
+using SparseArrays
+
+include("operators.jl")
+include("ops_predefined.jl")
+include("npa.jl")
 
 end

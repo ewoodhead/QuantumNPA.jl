@@ -154,7 +154,7 @@ function Base.:*(k::KetBra, l::KetBra)
 
     if input == l.input
         kor, lol = k.outputr, l.outputl
-        
+
         if kor == lol
             kol, lor = k.outputl, l.outputr
 
