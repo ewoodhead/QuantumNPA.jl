@@ -3,24 +3,10 @@
 Code to do NPA in Julia. In development - names of important functions or
 even the entire project could change.
 
-Prerequisites:
+Installation:
 ```julia
-using Pkg; Pkg.add(["Combinatorics", "JuMP", "SCS", "BlockDiagonals"])
+using Pkg; Pkg.add("https://github.com/ewoodhead/QuantumNPA.jl"); using QuantumNPA
 ```
-
-Then to use or try out:
-```julia
-include("QuantumNPA.jl");
-using .QuantumNPA
-```
-(The dot in the second line isn't a typo.)
-
-If you are working on the code and want to be able to call internal functions
-more conveniently you can instead do
-```julia
-include("qnpa.jl")
-```
-This will load every function and global variable into the main module.
 
 
 
