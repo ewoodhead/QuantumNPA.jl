@@ -5,7 +5,7 @@ even the entire project could change.
 
 Installation:
 ```julia
-using Pkg; Pkg.add("https://github.com/ewoodhead/QuantumNPA.jl"); using QuantumNPA
+using Pkg; Pkg.add(url="https://github.com/ewoodhead/QuantumNPA.jl"); using QuantumNPA
 ```
 
 
