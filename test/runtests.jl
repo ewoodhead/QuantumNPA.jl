@@ -1,7 +1,7 @@
 using QuantumNPA
 using Test
 
-@testset "Tests of basic operator properties" begin
+@testset "Tests of basic operator properties          " begin
     PA = projector(1, 1:2, 1:2)
     PB = projector(2, 1:2, 1:2)
     @test PA[1,1]*PB[1,1] == PB[1,1]*PA[1,1]
@@ -57,7 +57,7 @@ using Test
     @test S^2 == 4*Id - comm(A1, A2) * comm(B1, B2)
 end
 
-@testset "Test with matrix coefficients" begin
+@testset "Test with matrix coefficients               " begin
     P = [1 0; 0 1] * Id + [0 1; 1 0] * A1
     Q = [1 2; 3 4] * Id + [5 6; 7 8] * B1
     R = [1 2; 3 4] * Id + [3 4; 1 2] * A1 + [5 6; 7 8] * B1 + [7 8; 5 6] * A1*B1
@@ -80,7 +80,7 @@ end
     @test A_C1 * Y == A1 * B1
 end
 
-@testset "Some simple type checks" begin
+@testset "Some simple type checks                     " begin
     P = projector(1, 1, 1)
     @test P isa Monomial
     @test !(P isa Polynomial)
@@ -103,74 +103,69 @@ end
 
 
 
-@testset "Tests of npa_max()" begin
-    @testset "Test CHSH" begin
-        @dichotomic A1 A2 B1 B2
-        S = A1*(B1 + B2) + A2*(B1 - B2)
-        @test npa_max(S, 2) ≈ sqrt(8) atol=1e-3
-    end
+@testset "Tests of npa_max()                          " begin
+    # Test CHSH
+    @dichotomic A1 A2 B1 B2
+    S = A1*(B1 + B2) + A2*(B1 - B2)
+    @test npa_max(S, 2) ≈ sqrt(8) atol=1e-3
 
-    @testset "Test Svetlichny" begin
-        @dichotomic A[1:2] B[1:2] C[1:2]
-        E(x,y,z) = A[x]*B[y]*C[z]
-        S = (-E(1,1,1) + E(1,1,2) + E(1,2,1) + E(1,2,2)
-             + E(2,1,1) + E(2,1,2) + E(2,2,1) - E(2,2,2))
-        @test npa_max(S, "1 + A B + A C + B C") ≈ sqrt(32) atol=1e-3
-    end
+    # Test Svetlichny
+    @dichotomic A[1:2] B[1:2] C[1:2]
+    E(x,y,z) = A[x]*B[y]*C[z]
+    S = (-E(1,1,1) + E(1,1,2) + E(1,2,1) + E(1,2,2)
+         + E(2,1,1) + E(2,1,2) + E(2,2,1) - E(2,2,2))
+    @test npa_max(S, "1 + A B + A C + B C") ≈ sqrt(32) atol=1e-3
 
-    @testset "Test modified CHSH" begin
-        b = 0.3
-        a = 0.6
-        S = b * A1 + a * A1*(B1 + B2) + A2*(B1 - B2)
-        f = ((b, a) -> 2*sqrt((1 + a^2)*(1 + 0.25*b^2)))
-        @test npa_max(S, "1 + A B + A^2 B") ≈ f(b, a) atol=1e-3
-    end
+    # Test modified CHSH
+    b = 0.3
+    a = 0.6
+    S = b * A1 + a * A1*(B1 + B2) + A2*(B1 - B2)
+    f = ((b, a) -> 2*sqrt((1 + a^2)*(1 + 0.25*b^2)))
+    @test npa_max(S, "1 + A B + A^2 B") ≈ f(b, a) atol=1e-3
 
-    @testset "Test max of <A1> with constraint that <A1 (B1 + B2)> = <A2 (B1 - B2)>" begin
-        S1 = A1*(B1 + B2)
-        S2 = A2*(B1 - B2)
-        eq_constraints = [S1 - 1.4*Id, S2 - 1.4*Id]
-        f = ((s1, s2) -> sqrt(1 - s2^2/(4 - s1^2)))
-        @test npa_max(A1, 2, eq=eq_constraints) ≈ f(1.4, 1.4) atol=1e-3
-    end
+    # Test max of <A1> with constraint that <A1 (B1 + B2)> = <A2 (B1 - B2)>
+    S1 = A1*(B1 + B2)
+    S2 = A2*(B1 - B2)
+    eq_constraints = [S1 - 1.4*Id, S2 - 1.4*Id]
+    f = ((s1, s2) -> sqrt(1 - s2^2/(4 - s1^2)))
+    @test npa_max(A1, 2, eq=eq_constraints) ≈ f(1.4, 1.4) atol=1e-3
 
-    @testset "Test CH74 form of CHSH" begin
-        PA11, PA12 = projector(1,1,1:2)
-        PB11, PB12 = projector(2,1,1:2)
-        S = -PA11 - PB11 + PA11*(PB11 + PB12) + PA12*(PB11 - PB12)
-        @test npa_max(S, 1) ≈ 0.5*(sqrt(2.0) - 1) atol=1e-3
-    end
+    # Test CH74 form of CHSH
+    PA11, PA12 = projector(1,1,1:2)
+    PB11, PB12 = projector(2,1,1:2)
+    S = -PA11 - PB11 + PA11*(PB11 + PB12) + PA12*(PB11 - PB12)
+    @test npa_max(S, 1) ≈ 0.5*(sqrt(2.0) - 1) atol=1e-3
 
-    @testset "Test CGLMP with built-in cglmp() function" begin
-        @test npa_max(cglmp(3), "1 + A B") ≈ 1 + sqrt(11/3) atol=1e-3
-    end
+    # Test CGLMP with built-in cglmp() function
+    @test npa_max(cglmp(3), "1 + A B") ≈ 1 + sqrt(11/3) atol=1e-3
 
-    @testset "Guessing probability test" begin
-        PA = projector(1, 1:2, 1:2, full=true)
-        PB = projector(2, 1:2, 1:2, full=true)
-        PE = projector(5, 1:4, 1, full=true)
-        # CHSH = 2*sqrt(2) * p
-        p = 0.9
-        # Expectation value of G is the probability that Eve correctly guesses
-        # Alice's and Bob's joint outcome.
-        G = sum(PA[a,1] * PB[b,1] * PE[2*(a-1) + b]
-                for a in 1:2 for b in 1:2)
-        # Ideal CHSH-violating correlations mixed with noise. N.B., the actual
-        # constraints imposed are on the expectation values of the operators
-        # in the array.
-        constraints = [PA[1,1] - 0.5*Id,
-                       PA[1,2] - 0.5*Id,
-                       PB[1,1] - 0.5*Id,
-                       PB[1,2] - 0.5*Id,
-                       PA[1,1]*PB[1,1] - 0.25*(1 + p/sqrt(2))*Id,
-                       PA[1,1]*PB[1,2] - 0.25*(1 + p/sqrt(2))*Id,
-                       PA[1,2]*PB[1,1] - 0.25*(1 + p/sqrt(2))*Id,
-                       PA[1,2]*PB[1,2] - 0.25*(1 - p/sqrt(2))*Id]
-        # This returns about 0.7467 for p = 0.9 at level 2 using the default SCS
-        # solver. Solution for comparison was computed separately using my older
-        # npa-hierarchy library in Lisp and the arbitrary precision SDP solver
-        # SDPA-GMP
-        pguess_sol = 0.7461756908058874
-        @test npa_max(G, 2, eq=constraints) ≈ pguess_sol atol=1e-3
-    end
+    # Guessing probability test
+    PA = projector(1, 1:2, 1:2, full=true)
+    PB = projector(2, 1:2, 1:2, full=true)
+    PE = projector(5, 1:4, 1, full=true)
+    # CHSH = 2*sqrt(2) * p
+    p = 0.9
+    # Expectation value of G is the probability that Eve correctly guesses
+    # Alice's and Bob's joint outcome.
+    G = sum(PA[a,1] * PB[b,1] * PE[2*(a-1) + b]
+            for a in 1:2 for b in 1:2)
+    # Ideal CHSH-violating correlations mixed with noise. N.B., the actual
+    # constraints imposed are on the expectation values of the operators
+    # in the array.
+    constraints = [PA[1,1] - 0.5*Id,
+                   PA[1,2] - 0.5*Id,
+                   PB[1,1] - 0.5*Id,
+                   PB[1,2] - 0.5*Id,
+                   PA[1,1]*PB[1,1] - 0.25*(1 + p/sqrt(2))*Id,
+                   PA[1,1]*PB[1,2] - 0.25*(1 + p/sqrt(2))*Id,
+                   PA[1,2]*PB[1,1] - 0.25*(1 + p/sqrt(2))*Id,
+                   PA[1,2]*PB[1,2] - 0.25*(1 - p/sqrt(2))*Id]
+    # This returns about 0.7467 for p = 0.9 at level 2 using the default SCS
+    # solver. Solution for comparison was computed separately using my older
+    # npa-hierarchy library in Lisp and the arbitrary precision SDP solver
+    # SDPA-GMP
+    pguess_sol = 0.7461756908058874
+    @test npa_max(G, 2, eq=constraints) ≈ pguess_sol atol=1e-3
 end
+
+println()
