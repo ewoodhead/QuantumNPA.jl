@@ -158,7 +158,7 @@ Base.iszero(p::Polynomial) = isempty(p.terms)
 
 function zero_coeff(p::Polynomial)
     cfsize = p.cfsize
-    
+
     if cfsize === ()
         return 0
     else
@@ -190,8 +190,8 @@ hasmonomial(p::Polynomial, m::Monomial) = haskey(p.terms, m)
 
 
 # Copy a polynomial. We need to copy the dictionary of terms since these are
-# often mutated, but not the others.                      
-                      
+# often mutated, but not the others.
+
 function Base.copy(p::Polynomial)
     return Polynomial(p.cfsize, p.blockstruct, copy(p.terms))
 end
@@ -242,7 +242,7 @@ function set_nonzero!(terms::Terms, c, m)
         terms[m] = c
     end
 end
-    
+
 
 
 # Low level functions to add to a polynomial.

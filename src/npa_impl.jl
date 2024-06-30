@@ -61,7 +61,7 @@ Generate the NPA relaxation for a given quantum optimisation problem (an
 operator expr whose expectation we want to maximise with the expectation
 values of the operator constraints set to zero).
 
-The result is 
+The result is
 """
 function npa2sdp(expr, level; eq=[], ge=[])
     moment = npa_moment([expr, eq, ge], level)
@@ -88,7 +88,7 @@ function npa2sdp(expr, moment::Polynomial; eq=[], ge=[])
     # Reduce inequality constraints then include them as inequalities along
     # with the original moment matrix.
     ge = reduce_exprs(ge, eq)
-    
+
     return (expr, vcat([moment], ge))
 end
 
@@ -121,12 +121,12 @@ function sdp2jump(expr, ineqs;
         maximise = false
         s = -1
     end
-    
+
     model = !isnothing(solver) ? Model(solver) : Model()
 
     Zs = [@variable(model, [1:m, 1:n], PSD)
           for (m, n) in size_as_pair.(ineqs)]
-    
+
     Ids = (ineq[Id] for ineq in ineqs)
     objective = (sum(LinearAlgebra.tr(s*m*z)
                      for (m, z) in zip(Ids, Zs))
@@ -145,7 +145,7 @@ function sdp2jump(expr, ineqs;
         Fs = (ineq[m] for ineq in ineqs)
         tr_term = sum(LinearAlgebra.tr(F*Z)
                       for (F, Z) in zip(Fs, Zs))
-            
+
         @constraint(model, tr_term + s*c == 0)
     end
 

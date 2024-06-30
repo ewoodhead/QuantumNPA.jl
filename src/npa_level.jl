@@ -74,7 +74,7 @@ function make_term(term, ops::Dict{PartyVec,Set{Monomial}})
         return npa_level(all_ops, level)
     else
         result = Set([Id])
-        
+
         for (party, power) in level
             ms = monomial_products(ops[party], power)
             result = nonzero_products(result, ms)

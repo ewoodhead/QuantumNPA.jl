@@ -211,7 +211,7 @@ otherwise returns the first index where they differ.
 """
 function same_upto(u, v, n)
     k = 0
-    
+
     while ((k += 1) <= n)
         if u[k] != v[k]
             return k
@@ -226,7 +226,7 @@ Test if two party vecs have any parties in common, optionally starting from
 given indices j and k.
 
 parties_isect(p, q) returns the same thing as !isempty(intersect(p, q)), but
-uses that the elements of p and q are strictly increasing to 
+uses that the elements of p and q are strictly increasing to
 """
 function parties_isect(p::PartyVec, q::PartyVec)
     if ((m = length(p)) == 0) || ((n = length(q)) == 0)
@@ -243,7 +243,7 @@ function parties_isect(p::PartyVec, q::PartyVec)
             if (j += 1) > m
                 return false
             end
-         
+
             x = p[j]
         else
             if (k += 1) > n
@@ -271,7 +271,7 @@ end
 
 """
 We have a vector y = [(q, [ops...])...] of groups of adjacent operators
-[ops...] sharing the same parties q and 
+[ops...] sharing the same parties q and
 """
 function insert_at(p::PartyVec, y::OpVector, n::Int)
     for k in 1:n

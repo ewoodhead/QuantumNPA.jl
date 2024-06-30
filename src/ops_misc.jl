@@ -124,7 +124,7 @@ end
 function sgnnum(x::Number, p::String = "+", m::String = "-")
     xr = real(x)
     xi = imag(x)
-    
+
     if xi == 0
         return (csgn(xr, p, m), num2str(abs(xr)))
     elseif xr == 0
@@ -135,7 +135,7 @@ function sgnnum(x::Number, p::String = "+", m::String = "-")
         if xr >= 0
             xrs = num2str(xr)
             s = csgn(xi)
-            
+
             return (p, "($xrs $s $(xis)im)")
         else
             xrs = num2str(-xr)
