@@ -108,7 +108,18 @@ function set_verbosity!(model, verbose)
     end
 end
 
-
+#this is required so that dot used in sdp2jump has acceptable performance
+import LinearAlgebra.dot
+function dot(A::SparseMatrixCSC, B::Symmetric{<:JuMP._MA.AbstractMutable})
+    acc = zero(eltype(B))
+    for j in 1:size(A, 2)
+        for k in nzrange(A, j)
+            add_to_expression!(acc, nonzeros(A)[k], B[rowvals(A)[k], j])
+        end
+    end
+    return acc
+end
+dot(A::Symmetric{<:JuMP._MA.AbstractMutable}, B::SparseMatrixCSC) = dot(B,A)
 
 function sdp2jump(expr, ineqs;
                   goal=:maximise,
@@ -128,7 +139,7 @@ function sdp2jump(expr, ineqs;
           for (m, n) in size_as_pair.(ineqs)]
 
     Ids = (ineq[Id] for ineq in ineqs)
-    objective = (sum(LinearAlgebra.tr(s*m*z)
+    objective = (s*sum(dot(m,z)
                      for (m, z) in zip(Ids, Zs))
                  + expr[Id])
 
@@ -143,7 +154,7 @@ function sdp2jump(expr, ineqs;
     for m in mons
         c = expr[m]
         Fs = (ineq[m] for ineq in ineqs)
-        tr_term = sum(LinearAlgebra.tr(F*Z)
+        tr_term = sum(dot(F,Z)
                       for (F, Z) in zip(Fs, Zs))
 
         @constraint(model, tr_term + s*c == 0)

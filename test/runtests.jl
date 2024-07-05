@@ -58,6 +58,7 @@ using Test
 end
 
 @testset "Test with matrix coefficients               " begin
+    @dichotomic A1 B1
     P = [1 0; 0 1] * Id + [0 1; 1 0] * A1
     Q = [1 2; 3 4] * Id + [5 6; 7 8] * B1
     R = [1 2; 3 4] * Id + [3 4; 1 2] * A1 + [5 6; 7 8] * B1 + [7 8; 5 6] * A1*B1
@@ -89,6 +90,7 @@ end
     @test Q isa Polynomial
     @test !(Q isa Monomial)
 
+    @dichotomic A1 A2 B1 B2
     S = A1*B1 + A1*B2 + A2*B1 - A2*B2
     @test S isa Polynomial
 
