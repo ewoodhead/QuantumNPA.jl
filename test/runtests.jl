@@ -37,7 +37,7 @@ using Test
               + UA1 * UAc2 * UA3 * PA11)
     @test conj(Q)*Q == result
 
-    ZE = zbff(5, 1:2)
+    ZE = generic(5, 1:2)
     R = PA[1,1] * PB[2,2] * ZE[1] * ZE[2]
     result = PA[1,1] * PB[2,2] * conj(ZE[2]) * conj(ZE[1])
     @test conj(R) == result

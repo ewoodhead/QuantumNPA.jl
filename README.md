@@ -210,7 +210,7 @@ operators that we associate to different parties. At the moment:
 - fourier,
 - projector,
 - unitary,
-- zbff (operators for Brown-Fawzi-Fawzi method).
+- generic (operators with no special properties).
 
 The identity is represented by a variable `Id` that is predefined.
 ```julia
@@ -265,7 +265,7 @@ Id + 2 UA1 UA*2 UA3 PA1|1 + UA1 UA*2 UA3 PA1|1 UA1 UA*2 UA3 PA1|1
 julia> conj(Q)*Q
 Id + PA1|1 + PA1|1 UA*3 UA2 UA*1 + UA1 UA*2 UA3 PA1|1
 
-julia> ZE = zbff(5, 1:2);
+julia> ZE = generic(5, 1:2);
 
 julia> R = PA[1,1]*PB[2,2]*ZE[1]*ZE[2]
 PA1|1 PB2|2 ZE1 ZE2
@@ -335,7 +335,7 @@ dichotomic(party, input)
 fourier(party, input, power, d)
 projector(party, output, input, full=false)
 unitary(party, index, conj=false)
-zbff(party, index, conj=false)
+generic(party, index, conj=false)
 ```
 In these:
 - `party` is either:
@@ -402,7 +402,7 @@ julia> projector(1, 1:3, 1:2, full=true)
  PA2|1               PA2|2
  Id - PA1|1 - PA2|1  Id - PA1|2 - PA2|2
 
-julia> zbff(1, 1:3)
+julia> generic(1, 1:3)
 3-element Array{Monomial,1}:
  ZA1
  ZA2

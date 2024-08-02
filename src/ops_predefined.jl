@@ -194,4 +194,4 @@ end
 
 
 
-@operator Zbff(index::Integer, conj::Bool) "Z$party$conj$index"
+@operator Generic(index::Integer, conj::Bool) "Z$party$conj$index"
