@@ -2,7 +2,7 @@
 Return (without duplications) all nonzero products of elements in s1 and s2.
 """
 function nonzero_products(s1, s2)
-    return filter(!iszero, Set(x*y for x in s1 for y in s2))
+    return union((monomials(x*y) for x in s1 for y in s2)...)
 end
 
 "Return all unique nonzero n-fold products of given monomials."
@@ -100,7 +100,7 @@ function npa_level(ops::Set{Monomial}, n::Integer)
     result = Set([Id])
 
     while n > 0
-        result = filter(!iszero, Set(x*y for x in result for y in ops))
+        result = union((monomials(x*y) for x in result for y in ops)...)
         n -= 1
     end
 

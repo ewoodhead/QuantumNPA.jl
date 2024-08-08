@@ -27,9 +27,9 @@ monomials(s...) = monomials(s)
 monomials(itr) = Set(flatten([monomials(x) for x in itr]))
 
 "Return the monomials in polynomial x."
-monomials(p::Polynomial) = keys(p.terms)
+monomials(p::Polynomial) = Set(keys(p.terms))
 
-monomials(m::Monomial) = (m,)
+monomials(m::Monomial) = Set([m])
 
 max_monomial(x) = maximum(all_monomials(x))
 

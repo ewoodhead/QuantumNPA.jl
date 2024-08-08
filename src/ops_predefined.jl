@@ -195,3 +195,30 @@ end
 
 
 @operator Generic(index::Integer, conj::Bool) "Z$party$conj$index"
+
+
+
+@operator(Pauli(k::Int, label::Char),
+          "$party$label",
+          false)
+
+sigmaX = Pauli(1, 'X')
+sigmaY = Pauli(2, 'Y')
+sigmaZ = Pauli(3, 'Z')
+pauli_operators = [sigmaX, sigmaY, sigmaZ]
+
+function pauli(party, label::Char)
+    k = findfirst(isequal(label), ['X', 'Y', 'Z'])
+
+    if isnothing(k)
+        @error "Pauli label must be 'X', 'Y', or 'Z'."
+    end
+
+    return Monomial(party, pauli_operators[k])
+end
+
+pauli_mul_table = [ (   1,    []   )   ( 1im, [sigmaZ])   (-1im, [sigmaY]);
+                    (-1im, [sigmaZ])   (   1,    []   )   ( 1im, [sigmaX]);
+                    ( 1im, [sigmaY])   (-1im, [sigmaX])   (   1,    []   )  ]
+
+Base.:*(x::Pauli, y::Pauli) = pauli_mul_table[x.k, y.k]
