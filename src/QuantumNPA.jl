@@ -1,9 +1,9 @@
 module QuantumNPA
 
-export @dichotomic, Id, Monomial, Polynomial, cglmp, coefficients, comm,
-    dichotomic, direct_sum, fourier, isidentity, monomials, npa2jump,
-    npa2sdp, npa_level, npa_max, npa_min, npa_moment, operators, projector,
-    sdp2jump, set_solver!, unitary, generic, pauli
+export @dichotomic, @pauli, Id, Monomial, Polynomial, cglmp, coefficients,
+    comm, dichotomic, direct_sum, fourier, generic, isidentity, monomials,
+    npa2jump, npa2sdp, npa_level, npa_max, npa_min, npa_moment, operators,
+    pauli, projector, sdp2jump, set_solver!, unitary
 
 using Base.Iterators #  flatten, zip (filter?)
 using BlockDiagonals

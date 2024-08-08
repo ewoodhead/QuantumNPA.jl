@@ -7,7 +7,6 @@ end
 function parse_dichotomic(expr)
     if expr isa Symbol
         (party, input) = split_party(expr)
-        name = Symbol(party)
         return :($(esc(expr)) = dichotomic($party, $(parse(Int, input))))
     else
         name = expr.args[1]
@@ -17,8 +16,8 @@ function parse_dichotomic(expr)
     end
 end
 
-macro dichotomic(expr...)
-    exprs = map(parse_dichotomic, expr)
+macro dichotomic(vars...)
+    exprs = map(parse_dichotomic, vars)
     return quote $(exprs...) end
 end
 
@@ -222,3 +221,17 @@ pauli_mul_table = [ (   1,    []   )   ( 1im, [sigmaZ])   (-1im, [sigmaY]);
                     ( 1im, [sigmaY])   (-1im, [sigmaX])   (   1,    []   )  ]
 
 Base.:*(x::Pauli, y::Pauli) = pauli_mul_table[x.k, y.k]
+
+function parse_pauli(var::Symbol)
+    varname = string(var)
+
+    party = varname[1:end-1]
+    label = varname[end]
+
+    return :($(esc(var)) = pauli($party, $label))
+end
+
+macro pauli(vars...)
+    exprs = map(parse_pauli, vars)
+    return quote $(exprs...) end
+end
