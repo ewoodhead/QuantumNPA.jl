@@ -197,6 +197,10 @@ end
 
 
 
+@operator Hermitian(index::Integer) "H$party$index"
+
+
+
 @operator(Pauli(k::Int, label::Char),
           "$party$label",
           false)
