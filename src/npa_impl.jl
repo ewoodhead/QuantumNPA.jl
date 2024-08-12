@@ -32,7 +32,7 @@ function npa_moment(operators::Vector{<:Union{Monomial,Polynomial}})
 
     for (i, x) in iops
         for (j, y) in iops[i:end]
-            p = Polynomial(conj_min(conj(x)*y))
+            p = Polynomial(real_rep(conj(x)*y))
 
             for (c, m) in p
                 if !hasmonomial(moment, m)
@@ -70,9 +70,9 @@ end
 
 function npa2sdp(expr, moment::Polynomial; eq=[], ge=[])
     # Reduce constraints to canonical form
-    expr = conj_min(expr)
-    eq = linspace(map(conj_min, eq))
-    ge = map(conj_min, ge)
+    expr = real_rep(expr)
+    eq = linspace(map(real_rep, eq))
+    ge = map(real_rep, ge)
 
     if haskey(eq, Id)
         @error "Contradiction Id = 0 in equality constraints."
