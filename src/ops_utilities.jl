@@ -357,3 +357,40 @@ end
 function reduce_exprs(exprs, space::Linspace)
     return [reduce_expr(expr, space) for expr in exprs]
 end
+
+
+
+function conj_minmax(O::Monomial)
+    Oc = conj(O)
+
+    if O == Oc
+        return (O, 0, O)
+    elseif O < Oc
+        return (O, 1, Oc)
+    else
+        return (Oc, -1, O)
+    end
+end
+
+
+
+"""
+Representation of the real or Hermitian part of an operator.
+
+Given an operator O and its adjoint Oc, the one appearing first
+lexicographically is used to represent its Hermitian part (O + Oc)/2 and
+the other is used to represent its anti-Hermitian part (O - Oc)/(2i).
+"""
+function real_rep(p::Polynomial)
+    result = Polynomial()
+
+    for (c, m) in P
+        (rm, s, im) = conj_minmax(m)
+        add!(result, real(c), rm)
+        add!(result, s*imag(c), im)
+    end
+
+    return result
+end
+
+real_rep(m::Monomial) = conj_min(m)
