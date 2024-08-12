@@ -384,7 +384,7 @@ the other is used to represent its anti-Hermitian part (O - Oc)/(2i).
 function real_rep(p::Polynomial)
     result = Polynomial()
 
-    for (c, m) in P
+    for (c, m) in p
         (rm, s, im) = conj_minmax(m)
         add!(result, real(c), rm)
         add!(result, s*imag(c), im)
