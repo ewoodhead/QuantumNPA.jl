@@ -233,8 +233,8 @@ function sdp2jump(expr, ineqs;
     set_objective!(model, sense, objective)
 
     for ineq in ineqs
-        ineq[Id] + sum(ineq[m]*v[m] for m in mons)
-        add_constraint!(model, ineq)
+        constraint = ineq[Id] + sum(ineq[m]*v[m] for m in mons)
+        add_constraint!(model, constraint)
     end
 
     return model
