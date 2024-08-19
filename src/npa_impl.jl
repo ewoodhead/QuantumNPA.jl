@@ -250,7 +250,7 @@ end
 
 function npa2jump(expr, level_or_moments; eq=[], ge=[], kw...)
     (expr, moments) = npa2sdp(expr, level_or_moments, eq=eq, ge=ge)
-    model = sdp2jump_d(expr, moments; kw...)
+    model = sdp2jump(expr, moments; kw...)
     return model
 end
 
