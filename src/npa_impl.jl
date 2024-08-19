@@ -128,9 +128,9 @@ dot(A::Symmetric{<:JuMP._MA.AbstractMutable}, B::SparseMatrixCSC) = dot(B,A)
 
 
 function sdp2jump_d(expr, ineqs;
-                   goal=:maximise,
-                   solver=nothing,
-                   verbose=nothing)
+                    goal=:maximise,
+                    solver=nothing,
+                    verbose=nothing)
     if goal in (:maximise, :maximize, :max)
         maximise = true
         s = 1
