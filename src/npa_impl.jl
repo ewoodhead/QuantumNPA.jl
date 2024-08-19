@@ -212,7 +212,7 @@ end
 
 
 function add_constraint!(model::Model, constraint)
-    if size(constraint) === Tuple{Int, Int}
+    if typeof(size(constraint)) === Tuple{Int, Int}
         @constraint(model, constraint in PSDCone())
     else
         @constraint(model, constraint .>= 0)
