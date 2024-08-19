@@ -98,14 +98,39 @@ if !@isdefined(default_solver)
     default_solver = SCS.Optimizer
 end
 
+"Set the default solver called by QuantumNPA"
 function set_solver!(solver)
     global default_solver = solver
 end
 
-function set_verbosity!(model, verbose)
-    if !isnothing(verbose)
-        (!verbose ? set_silent : unset_silent)(model)
+
+
+if !@isdefined(default_silent)
+    default_silent = false
+end
+
+"Set default JuMP model verbosity"
+function set_verbosity!(silent::Bool)
+    global default_silent = silent
+end
+
+"Set JuMP model verbosity"
+function set_verbosity!(model::Model, silent=default_verbosity)
+    if !isnothing(silent)
+        (silent ? set_silent : unset_silent)(model)
     end
+end
+
+
+
+function jump_model(solver=default_solver, silent=default_silent)
+    model = (!isnothing(solver) ? Model(solver) : Model())
+
+    if !isnothing(silent)
+        set_verbosity!(model, silent)
+    end
+
+    return model
 end
 
 
@@ -129,8 +154,8 @@ dot(A::Symmetric{<:JuMP._MA.AbstractMutable}, B::SparseMatrixCSC) = dot(B,A)
 
 function sdp2jump_d(expr, ineqs;
                     goal=:maximise,
-                    solver=nothing,
-                    verbose=nothing)
+                    solver=default_solver,
+                    silent=default_silent)
     if goal in (:maximise, :maximize, :max)
         maximise = true
         s = 1
@@ -139,7 +164,7 @@ function sdp2jump_d(expr, ineqs;
         s = -1
     end
 
-    model = !isnothing(solver) ? Model(solver) : Model()
+    model = jump_model(solver, silent)
 
     Zs = [@variable(model, [1:m, 1:n], PSD)
           for (m, n) in size_as_pair.(ineqs)]
@@ -166,50 +191,22 @@ function sdp2jump_d(expr, ineqs;
         @constraint(model, tr_term + s*c == 0)
     end
 
-    set_verbosity!(model, verbose)
-
     return model
 end
 
 
 
-function npa2jump(expr, level_or_moments;
-                  eq=[],
-                  ge=[],
-                  goal=:maximise,
-                  solver=nothing,
-                  verbose=nothing)
+function npa2jump(expr, level_or_moments; eq=[], ge=[], kw...)
     (expr, moments) = npa2sdp(expr, level_or_moments, eq=eq, ge=ge)
-
-    model = sdp2jump_d(expr, moments,
-                       goal=goal,
-                       solver=solver,
-                       verbose=verbose)
-
+    model = sdp2jump_d(expr, moments; kw...)
     return model
 end
 
 
 
-function npa_opt(expr, level_or_moments;
-                 eq=[],
-                 ge=[],
-                 goal=:maximise,
-                 solver=default_solver,
-                 verbose=false)
-    model = npa2jump(expr, level_or_moments,
-                     eq=eq,
-                     ge=ge,
-                     goal=goal)
-
-    set_optimizer(model, solver)
-
-    if !verbose
-        set_silent(model)
-    end
-
+function npa_opt(expr, level_or_moments; eq=[], ge=[], kw...)
+    model = npa2jump(expr, level_or_moments, eq=eq, ge=ge; kw...)
     optimize!(model)
-
     return objective_value(model)
 end
 
