@@ -108,8 +108,11 @@ function set_verbosity!(model, verbose)
     end
 end
 
-#this is required so that dot used in sdp2jump has acceptable performance
+
+
+# This is required so that dot used in sdp2jump_d has acceptable performance
 import LinearAlgebra.dot
+
 function dot(A::SparseMatrixCSC, B::Symmetric{<:JuMP._MA.AbstractMutable})
     acc = zero(eltype(B))
     for j in 1:size(A, 2)
@@ -119,12 +122,15 @@ function dot(A::SparseMatrixCSC, B::Symmetric{<:JuMP._MA.AbstractMutable})
     end
     return acc
 end
+
 dot(A::Symmetric{<:JuMP._MA.AbstractMutable}, B::SparseMatrixCSC) = dot(B,A)
 
-function sdp2jump(expr, ineqs;
-                  goal=:maximise,
-                  solver=nothing,
-                  verbose=nothing)
+
+
+function sdp2jump_d(expr, ineqs;
+                   goal=:maximise,
+                   solver=nothing,
+                   verbose=nothing)
     if goal in (:maximise, :maximize, :max)
         maximise = true
         s = 1
@@ -175,10 +181,10 @@ function npa2jump(expr, level_or_moments;
                   verbose=nothing)
     (expr, moments) = npa2sdp(expr, level_or_moments, eq=eq, ge=ge)
 
-    model = sdp2jump(expr, moments,
-                     goal=goal,
-                     solver=solver,
-                     verbose=verbose)
+    model = sdp2jump_d(expr, moments,
+                       goal=goal,
+                       solver=solver,
+                       verbose=verbose)
 
     return model
 end
