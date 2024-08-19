@@ -242,6 +242,12 @@ end
 
 
 
+function npa2jump_d(expr, level_or_moments; eq=[], ge=[], kw...)
+    (expr, moments) = npa2sdp(expr, level_or_moments, eq=eq, ge=ge)
+    model = sdp2jump_d(expr, moments; kw...)
+    return model
+end
+
 function npa2jump(expr, level_or_moments; eq=[], ge=[], kw...)
     (expr, moments) = npa2sdp(expr, level_or_moments, eq=eq, ge=ge)
     model = sdp2jump_d(expr, moments; kw...)
@@ -250,8 +256,9 @@ end
 
 
 
+
 function npa_opt(expr, level_or_moments; eq=[], ge=[], kw...)
-    model = npa2jump(expr, level_or_moments, eq=eq, ge=ge; kw...)
+    model = npa2jump_d(expr, level_or_moments, eq=eq, ge=ge; kw...)
     optimize!(model)
     return objective_value(model)
 end
