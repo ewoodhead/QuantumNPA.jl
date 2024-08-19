@@ -591,10 +591,16 @@ trace(p::Polynomial) = psum(c*trace(m) for (c, m) in p)
 
 
 matrix_coeff(c::Scalar) = [AbstractMatrix{Scalar}([c;;])]
-matrix_coeff(v::Vector{<:Scalar}) = [AbstractMatrix{Scalar}(reshape(v, :, 1))]
+
+function matrix_coeff(v::Vector{<:Scalar})
+    return [AbstractMatrix{Scalar}(reshape(v, :, 1))]
+end
+
 matrix_coeff(x) = [AbstractMatrix{Scalar}(x)]
 matrix_coeff(x::BlockDiagonal) = [AbstractMatrix{Scalar}(b)
                                   for b in blocks(x)]
+
+
 
 function ds_coeffs(op::Monomial, blockstruct, m, zerocf)
     return [matrix_coeff((op == m) ? 1 : 0)]

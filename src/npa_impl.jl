@@ -152,17 +152,36 @@ dot(A::Symmetric{<:JuMP._MA.AbstractMutable}, B::SparseMatrixCSC) = dot(B,A)
 
 
 
+function maximise_p(sense::Symbol)
+    if sense in (:maximise, :maximize, :max)
+        return true
+    elseif sense in (:minimise, :minimize, :min)
+        return false
+    else
+        @error "Unrecognised sense: $sense."
+    end
+end
+
+function set_objective!(model::Model, maximise::Bool, objective)
+    if maximise
+        @objective(model, Max, objective)
+    else
+        @objective(model, Min, objective)
+    end
+end
+
+function set_objective!(model::Model, sense::Symbol, objective)
+    set_objective!(model, maximise_p(sense), objective)
+end
+
+
+
 function sdp2jump_d(expr, ineqs;
-                    goal=:maximise,
+                    sense=:maximise,
                     solver=default_solver,
                     silent=default_silent)
-    if goal in (:maximise, :maximize, :max)
-        maximise = true
-        s = 1
-    elseif goal in (:minimise, :minimize, :min)
-        maximise = false
-        s = -1
-    end
+    maximise = maximise_p(sense)
+    s = (maximise ? 1 : -1)
 
     model = jump_model(solver, silent)
 
@@ -174,11 +193,7 @@ function sdp2jump_d(expr, ineqs;
                      for (m, z) in zip(Ids, Zs))
                  + expr[Id])
 
-    if maximise
-        @objective(model, Min, objective)
-    else
-        @objective(model, Max, objective)
-    end
+    set_objective!(model, !maximise, objective)
 
     mons = collect(m for m in monomials(expr, ineqs) if !isidentity(m))
 
@@ -189,6 +204,37 @@ function sdp2jump_d(expr, ineqs;
                       for (F, Z) in zip(Fs, Zs))
 
         @constraint(model, tr_term + s*c == 0)
+    end
+
+    return model
+end
+
+
+
+function add_constraint!(model::Model, constraint)
+    if size(constraint) === Tuple{Int, Int}
+        @constraint(model, constraint in PSDCone())
+    else
+        @constraint(model, constraint .>= 0)
+    end
+end
+
+function sdp2jump(expr, ineqs;
+                  sense=:maximise,
+                  solver=default_solver,
+                  silent=default_silent)
+    model = jump_model(solver, silent)
+
+    mons = filter(!isidentity, monomials(ineqs))
+
+    @variable(model, v[mons])
+
+    objective = expr[Id] + sum(expr[m]*v[m] for m in mons)
+    set_objective!(model, sense, objective)
+
+    for ineq in ineqs
+        ineq[Id] + sum(ineq[m]*v[m] for m in mons)
+        add_constraint!(model, ineq)
     end
 
     return model
@@ -212,5 +258,5 @@ end
 
 
 
-npa_max(expr, level; kw...) = npa_opt(expr, level; goal=:maximise, kw...)
-npa_min(expr, level; kw...) = npa_opt(expr, level; goal=:minimise, kw...)
+npa_max(expr, level; kw...) = npa_opt(expr, level; sense=:maximise, kw...)
+npa_min(expr, level; kw...) = npa_opt(expr, level; sense=:minimise, kw...)
