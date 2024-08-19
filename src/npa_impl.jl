@@ -106,7 +106,7 @@ end
 
 
 if !@isdefined(default_silent)
-    default_silent = false
+    default_silent = true
 end
 
 "Set default JuMP model verbosity"
