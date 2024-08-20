@@ -55,6 +55,12 @@ using Test
     B1, B2 = dichotomic(2, 1:2)
     S = A1*(B1 + B2) + A2*(B1 - B2)
     @test S^2 == 4*Id - comm(A1, A2) * comm(B1, B2)
+
+    @pauli AX AY AZ BX BY BZ
+    @test (AX*BX + AZ*BZ)^2 == 2*(Id - AY*BY)
+
+    Phi_plus = (1//4)*(Id + AX*BX - AY*BY + AZ*BZ)
+    @test Phi_plus^2 == Phi_plus
 end
 
 @testset "Test with matrix coefficients               " begin
@@ -140,6 +146,11 @@ end
 
     # Test CGLMP with built-in cglmp() function
     @test npa_max(cglmp(3), "1 + A B") ≈ 1 + sqrt(11/3) atol=1e-3
+
+    # Test 1SDI BB84 bound <AZ> <= sqrt(1 - <AX B2>^2)
+    @pauli AZ AX
+    @test(npa_max(AX, "1 + A B", eq=[AZ*B2 - 0.8*Id]) ≈ sqrt(1 - 0.8^2),
+          atol=1e-3)
 
     # Guessing probability test
     PA = projector(1, 1:2, 1:2, full=true)

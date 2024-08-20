@@ -14,6 +14,7 @@ rdiv(x, y) = x / y
 rdiv(x::RNum, y::RNum) = demote(x//y)
 
 
+
 # Definition of abstract Operator type and infrastructure for primitive
 # operators.
 include("ops_primitive.jl")

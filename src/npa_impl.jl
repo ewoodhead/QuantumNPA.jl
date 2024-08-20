@@ -136,19 +136,23 @@ end
 
 
 # This is required so that dot used in sdp2jump_d has acceptable performance
-import LinearAlgebra.dot
-
-function dot(A::SparseMatrixCSC, B::Symmetric{<:JuMP._MA.AbstractMutable})
+function LinearAlgebra.dot(A::SparseMatrixCSC,
+                           B::Symmetric{<:JuMP._MA.AbstractMutable})
     acc = zero(eltype(B))
+
     for j in 1:size(A, 2)
         for k in nzrange(A, j)
             add_to_expression!(acc, nonzeros(A)[k], B[rowvals(A)[k], j])
         end
     end
+
     return acc
 end
 
-dot(A::Symmetric{<:JuMP._MA.AbstractMutable}, B::SparseMatrixCSC) = dot(B,A)
+function LinearAlgebra.dot(A::Symmetric{<:JuMP._MA.AbstractMutable},
+                           B::SparseMatrixCSC)
+    return dot(B, A)
+end
 
 
 
