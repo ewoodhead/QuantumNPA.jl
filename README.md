@@ -17,7 +17,7 @@ using QuantumNPA
 ## Working examples
 
 Maximise CHSH at level 2 of the hierarchy:
-```julia
+```julia-repl
 julia> @dichotomic A1 A2 B1 B2;
 
 julia> S = A1*(B1 + B2) + A2*(B1 - B2)
@@ -28,7 +28,7 @@ julia> npa_max(S, 2)
 ```
 
 Maximise Svetlichny at level 1 + A B + A C + B C:
-```julia
+```julia-repl
 julia> @dichotomic A[1:2] B[1:2] C[1:2];
 
 julia> E(x,y,z) = A[x]*B[y]*C[z]
@@ -44,7 +44,7 @@ julia> npa_max(S, "1 + A B + A C + B C")
 party labels go from A to Z then AA to ZZ then AAA to ZZZ...)
 
 Maximise a modified CHSH at level 1 + A B + A^2 B:
-```julia
+```julia-repl
 julia> npa_max(0.3 * A1 + 0.6 * A1*(B1 + B2) + A2*(B1 - B2), "1 + A B + A^2 B")
 2.3584761820283977
 ```
@@ -54,24 +54,24 @@ You can specify both equality and inequality arguments using the `eq` and
 values you want, respectively, to set to and lower bound by zero. For
 example, to maximise `<A1>` subject to `<A1*(B1 + B2)> = 1.4` and `<A2*(B1 -
 B2)> = 1.4`:
-```julia
+```julia-repl
 julia> npa_max(A1, 2, eq=[A1*(B1 + B2) - 1.4*Id, A2*(B1 - B2) - 1.4*Id])
 0.19800616634180992
 ```
 Maximise `<A1 + A2>` subject to `<A1 + 2*A2> <= 1 ` and `<2*A1 + A2> <= 1`:
-```julia
+```julia-repl
 julia> npa_max(A1 + A2, 1, ge=[Id - A1 - 2*A2, Id - 2*A1 - A2])
 0.6666666597867417
 ```
 Maximise `<A1 + A2>` subject to `<A1> = <A2>` and `<A1 + 2*A2> <= 1 `:
-```julia
+```julia-repl
 julia> npa_max(A1 + A2, 1, eq=[A1 - A2], ge=[1 - A1 - 2*A2])
 0.666642228695571
 ```
 
 The above examples all use dichotomic variables, but projectors are also
 supported. Here we maximise the CH74 form of CHSH:
-```julia
+```julia-repl
 julia> PA11, PA12 = projector(1,1,1:2);
 
 julia> PB11, PB12 = projector(2,1,1:2);
@@ -84,7 +84,7 @@ julia> (sqrt(2) - 1)/2
 ```
 
 Maximise CGLMP with d=3 at level 1 + A B:
-```julia
+```julia-repl
 julia> npa_max(cglmp(3), "1 + A B")
 2.914945976226541
 
@@ -142,7 +142,7 @@ QuantumNPA calls the SCS solver by default (since it doesn't require a
 license) to solve the NPA relaxation of a quantum optimisation problem, but a
 keyword argument `solver` lets you specify a different one. E.g., solve a
 problem using Mosek (which you need a license file to use):
-```julia
+```julia-repl
 julia> using MosekTools
 
 julia> npa_max(S, 2, solver=Mosek.Optimizer)
@@ -150,12 +150,12 @@ julia> npa_max(S, 2, solver=Mosek.Optimizer)
 ```
 You can also change the default solver if you don't want to specify it every
 time, e.g.,
-```julia
+```julia-repl
 julia> set_solver!(Mosek.Optimizer)
 ```
 
 If you want to construct a JuMP model and solve it separately:
-```julia
+```julia-repl
 julia> model = npa2jump(S, "1 + A B", solver=SCS.Optimizer)
 A JuMP Model
 Minimization problem with:
@@ -217,7 +217,7 @@ operators that we associate to different parties. At the moment:
 - generic (operators with no special properties).
 
 The identity is represented by a variable `Id` that is predefined.
-```julia
+```julia-repl
 julia> Id
 Id
 
@@ -318,7 +318,7 @@ julia> S^2
 The above examples illustrate basic manipulation of monomials and polynomials
 of different kinds of operator expressions. Note that polynomials can also
 have matrix coefficients:
-```julia
+```julia-repl
 julia> P = [1 0; 0 1] * Id + [0 1; 1 0] * A1
 [1 0; 0 1] Id + [0 1; 1 0] A1
 
@@ -369,7 +369,7 @@ In these:
 Party labels go from A to Z for parties 1 to 26, then AA to ZZ starting from
 party 27, then AAA to ZZZ, and so on. Because of this, be aware that it is
 possible for different operators to end up being printed the same way:
-```julia
+```julia-repl
 julia> x = unitary(1, 3)
 UA3
 
@@ -394,7 +394,7 @@ UA*3 UA3
 
 A few examples illustrating different ways of calling the `projector()`
 function:
-```julia
+```julia-repl
 julia> projector(1, 1:2, 1:2)
 2×2 Array{Monomial,2}:
  PA1|1  PA1|2
@@ -414,7 +414,7 @@ julia> generic(1, 1:3)
 ```
 
 Examples illustrating commutation relations with dichotomic operators:
-```julia
+```julia-repl
 julia> A1, A2 = dichotomic(1, 1:2);
 
 julia> B1, B2 = dichotomic(2, 1:2);
@@ -475,7 +475,7 @@ There are no special relations (at least, at the moment) between the
 different types of operators, so you shouldn't, for example, mix projectors
 and dichotomic operators unless you consider them to be unrelated to each
 other:
-```julia
+```julia-repl
 julia> dichotomic(1, 1) * projector(1, 1, 1)
 A1 PA1|1
 
@@ -488,7 +488,7 @@ manipulated in the same sorts of ways as other types of objects in Julia,
 such as putting them in arrays or other data structures. For example,
 `dichotomic(p, 1:n)` returns a one-dimensional array of dichotomic operators,
 which we can then use in vector expressions such as:
-```julia
+```julia-repl
 julia> A = dichotomic(1, 1:2)
 2-element Vector{Monomial}:
  A1
@@ -541,7 +541,7 @@ julia> V'*V
 Monomials and polynomials are objects of different types, although a
 polynomial consisting of a single monomial multiplied by 1 is printed the
 same as a monomial:
-```julia
+```julia-repl
 julia> P = projector(1, 1, 1)
 PA1|1
 
@@ -563,7 +563,7 @@ Polynomial
 If you need to ensure a given object is a polynomial you can "promote" it by
 calling `Polynomial()` on it. This does nothing if the argument is already a
 polynomial:
-```julia
+```julia-repl
 julia> x = Polynomial(1)
 Id
 
@@ -582,7 +582,7 @@ julia> typeof.([x, y, z])
 Note that, in the last case, the polynomial returned is the same as (and not
 a copy of) the original, which means that modifying `z` here will modify `S`
 since they are the same object:
-```julia
+```julia-repl
 julia> z === S
 true
 
@@ -594,7 +594,7 @@ julia> S
 ```
 If you want to create a copy of a polynomial that you can safely modify
 without changing the original you can call the `copy()` function to do this:
-```julia
+```julia-repl
 julia> S = A1*(B1 + B2) + A2*(B1 - B2)
 A1 B1 + A1 B2 + A2 B1 - A2 B2
 
@@ -616,7 +616,7 @@ A1 B1 + A1 B2 + A2 B1 - A2 B2
 
 As the two above examples suggest, you can access and/or modify the
 coefficient associated to a given monomial using `[]`:
-```julia
+```julia-repl
 julia> S[A1*B1]
 1
 
@@ -625,7 +625,7 @@ julia> S[A1]
 ```
 You can get all the monomials in a polynomial by calling the `monomials()`
 function on it:
-```julia
+```julia-repl
 julia> monomials(S)
 Base.KeySet for a Dict{Monomial,Number} with 4 entries. Keys:
   A1 B2
@@ -635,7 +635,7 @@ Base.KeySet for a Dict{Monomial,Number} with 4 entries. Keys:
 ```
 Polynomials will also act as iterators over pairs of their nonzero
 coefficients and monomials in contexts where an iterator is expected:
-```julia
+```julia-repl
 julia> collect(S)
 4-element Vector{Any}:
  Pair{Number,Monomial}(-1, A2 B2)
@@ -653,7 +653,7 @@ A1 B1  =>   1
 ```
 If you want to iterate over the monomials in lexicographical order you can
 just call `sort()` on the polynomial first:
-```julia
+```julia-repl
 julia> for (c, m) in sort(S)
            @printf "%s  =>  %2d\n" m c
        end
@@ -685,7 +685,7 @@ constraints = [A1, A2, B1, B2,
 ```
 Assuming these variable definitions, we can use the `operators()` function to
 immediately find all the level-one operators in the problem:
-```julia
+```julia-repl
 julia> operators(objective, constraints)
 Set{Monomial} with 5 elements:
   A2
@@ -698,7 +698,7 @@ Set{Monomial} with 5 elements:
 to `false` by default. Setting it to `true` groups the level-one operators by
 party and returns a dictionary of the parties and operators associated to
 those parties:
-```julia
+```julia-repl
 julia> operators(objective, constraints, by_party=true)
 Dict{Integer,Set{Monomial}} with 3 entries:
   2 => Set(Monomial[B1, B2])
@@ -739,7 +739,7 @@ for (i, x) in indexed_ops
 end
 ```
 This gives:
-```julia
+```julia-repl
 julia> for (m, l) in sort!(collect(indices), by=first)
            @printf "%11s  =>  %s\n" m l
        end
@@ -779,7 +779,7 @@ B1 B2 B1 B2  =>  [(12, 13)]
 The example above uses `min(m, conj(m))` to find which of `m` or its
 conjugate comes first lexicographically. It works because comparisons between
 monomials are defined:
-```julia
+```julia-repl
 julia> A1 == A1
 true
 
@@ -795,7 +795,7 @@ true
 `sort` used above works for the same reason. `==` and `!=` (but not the
 inequalities) can also be used to compare monomials with polynomials or
 polynomials with each other:
-```julia
+```julia-repl
 julia> A1 == 1*A1
 true
 
@@ -852,7 +852,7 @@ tracking whether they are conjugated or not.
 Objects of the different basic operator types are structs containing data
 about them. They are created by calling their constructors, which are
 functions with the same (capitalised) names as the types. For example:
-```julia
+```julia-repl
 julia> x = Dichotomic(2)
 /2
 
@@ -892,7 +892,7 @@ defined generically for operators to just return the original operator:
 Base.conj(o::Operator) = o
 ```
 This is fine for operators that are meant to be Hermitian:
-```julia
+```julia-repl
 julia> cx = conj(x)
 /2
 
@@ -909,7 +909,7 @@ Base.conj(u::Unitary) = Unitary(u.index, !u.conj)
 ```
 It is this version that gets called if `conj()` is called with a unitary
 argument:
-```julia
+```julia-repl
 julia> u.conj
 true
 
@@ -937,7 +937,7 @@ zero or one.
 The implementation above is not sufficient for most of the operator types
 and, in practice, the generic multiplication rule is usually fallen back on
 to multiply operators of different types, e.g.,
-```julia
+```julia-repl
 julia> x*y
 (1, Operator[/2, P2|3])
 ```
@@ -961,7 +961,7 @@ determines how to multiply products. It takes two vectors of operators,
 identity), and then returns the concatenation of the remaining elements of
 `opsx`, the last non-empty product, and the remaining `opsy`. An example
 invocation:
-```julia
+```julia-repl
 julia> p = [u, x]
 2-element Vector{Operator}:
  U*3
@@ -988,7 +988,7 @@ vectors `p1`, `p2`, etc. and vectors of operators `ops1`, `ops2` (of the type
 used by the `join_ops()` function described above) associated to those
 parties. Thus, we can look at the contents of a `Monomial` by accessing its
 `word` field:
-```julia
+```julia-repl
 julia> (A1, A2) = dichotomic(1, 1:2);
 
 julia> PB11 = projector(2, 1, 1);
@@ -1038,7 +1038,7 @@ start with monomials containing a single operator and multiply them to
 construct longer monomials. A monomial containing just one operator can be
 created by calling the `Monomial` function with a party vector and operator
 as arguments, e.g.,
-```julia
+```julia-repl
 julia> M = Monomial([1], Dichotomic(2))
 A2
 
@@ -1058,7 +1058,7 @@ and so should be avoided.
 `Polynomial` objects represent linear combinations of monomials, such as
 `A1 + 2 A2 B1`. They have a single field, `terms`, which is a dictionary
 mapping monomials to coefficients:
-```julia
+```julia-repl
 julia> P = 3*Id + 2*A1*A2
 3 Id + 2 A1 A2
 
@@ -1071,7 +1071,7 @@ Only terms with nonzero coeffients should be stored. The arithmetic functions
 and indexed assignment (`setindex!()`, which makes `p[p] = c` work) don't
 create or remove pairs for which the coefficient is zero. So setting a term
 to zero deletes it from the dictionary:
-```julia
+```julia-repl
 julia> P
 3 Id + 2 A1 A2
 
@@ -1092,7 +1092,7 @@ basic one takes a dictionary mapping monomials to coefficients and simply
 uses that as the `terms` field. This is only meant to be used internally, and
 with care, since it can be used to create "invalid" polynomials that break
 assumptions made elsewhere in the library:
-```julia
+```julia-repl
 julia> Q = Polynomial(Dict(A1*A2 => 0))
 0 A1 A2
 
@@ -1101,7 +1101,7 @@ false
 ```
 Other versions create a polynomial with no input argument (returns the zero
 polynomial), or a number, a monomial, a number and monomial, or a polynomial:
-```julia
+```julia-repl
 julia> Polynomial()
 0
 
