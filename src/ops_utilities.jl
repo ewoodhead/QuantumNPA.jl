@@ -394,3 +394,31 @@ function real_rep(p::Polynomial)
 end
 
 real_rep(m::Monomial) = conj_min(m)
+
+
+
+"""
+    repack(p)
+
+Convert a polynomial with array coefficients into an array with polynomial
+coefficients.
+"""
+function repack(p::Polynomial)
+    if isscalar(p)
+        return p
+    end
+
+    result = Array{Polynomial}(undef, size(p)...)
+
+    for k in 1:length(result)
+        q = Polynomial()
+
+        for (c, m) in p
+            add!(q, c[k], m)
+        end
+
+        result[k] = q
+    end
+
+    return result
+end

@@ -154,6 +154,10 @@ Base.iszero(p::Polynomial) = isempty(p.terms)
 
 
 
+isscalar(p::Polynomial) = (p.cfsize === ())
+
+
+
 # Make it possible to access/assign polynomial coefficients via [] accessor.
 
 function zero_coeff(p::Polynomial)
@@ -570,6 +574,7 @@ function Base.adjoint(p::Polynomial)
 end
 
 Base.zero(::Polynomial) = Polynomial()
+Base.zero(::Type{Polynomial}) = Polynomial()
 
 Base.length(p::Polynomial) = length(p.terms)
 

@@ -11,19 +11,13 @@ end
 
 
 """
-Construct the NPA moment matrix.
+    npa_moment(operators)
 
-The argument operators can in general be an array of arrays of operators
-(blocks), e.g. [[Id], [A1 + B1], [A1 - B1]]. It can also be a simple array of
-operators, in which case it is treated the same as an array containing a
-single array of operators, e.g., [[Id, A1, A2]]). In either case the return
-value is a dictionary with:
-
-  * as keys: monomials obtained by multiplying operators in the same blocks
-    together.
-
-  * as values: block-diagonal sparse matrices with coefficients obtained
-    from multiplying the input operators together.
+Construct the NPA moment matrix, given a vector of operators (monomials or
+polynomials). The moment matrix returned is a representation of the real part
+of the moment matrix, i.e., the moment matrix plus its complex conjugate
+divided by two. It is returned in the form of a polynomial with sparse
+matrices as the monomials.
 """
 function npa_moment(operators::Vector{<:Union{Monomial,Polynomial}})
     N = length(operators)
@@ -52,22 +46,77 @@ end
 #    return blockdiag(moment, (sz) -> spzeros(Float64, sz))
 #end
 
+"""
+    npa_moment(source, level)
+
+Constructs the NPA moment matrix at the given level of the hierarchy, taking
+all degree 1 monomials appearing in `source` as the level 1 operators.
+`source` can be a monomial, polynomial, or collection containing monomials,
+polynomials, or sub-collections. The level can be a nonnegative integer or a
+string, such as `"1 + A B"`.
+"""
 npa_moment(source, level) = npa_moment(npa_level(source, level))
 
 
 
 """
-Generate the NPA relaxation for a given quantum optimisation problem (an
-operator expr whose expectation we want to maximise with the expectation
-values of the operator constraints set to zero).
+    npa2sdp(expr, level; eq=[], ge=[])
 
-The result is
+Generate the NPA relaxation for a given quantum optimisation problem, at the
+indicated level of the NPA hierarchy.
+
+This basically uses the `npa_moment` function to generate the moment matrix
+and then calls `npa2sdp` again with the moment matrix as the second argument,
+which takes the real part of the problem and then eliminates the equality
+constraints by substitution.
+
+# Example
+
+```julia-repl
+julia> S = A1*(B1 + B2) + A2*(B1 - B2)
+A1 B1 + A1 B2 + A2 B1 - A2 B2
+
+julia> (objective, moments) = npa2sdp(S, 1, eq=[A2*B1 - Id]);
+
+julia> objective
+Id + A1 B1 + A1 B2 - A2 B2
+
+julia> moments[1][Id]
+5×5 SparseArrays.SparseMatrixCSC{Float64, Int64} with 7 stored entries:
+ 1.0   ⋅    ⋅    ⋅    ⋅
+  ⋅   1.0   ⋅    ⋅    ⋅
+  ⋅    ⋅   1.0  1.0   ⋅
+  ⋅    ⋅   1.0  1.0   ⋅
+  ⋅    ⋅    ⋅    ⋅   1.0
+```
 """
 function npa2sdp(expr, level; eq=[], ge=[])
     moment = npa_moment([expr, eq, ge], level)
     return npa2sdp(expr, moment, eq=eq, ge=ge)
 end
 
+"""
+    npa2sdp(expr, moment; eq=[], ge=[])
+
+Generate the NPA relaxation for a given quantum optimisation problem.
+
+The main purpose of this function is to eliminate equality constraints from
+the input problem. This function also takes a representation of the real part
+of the input problem, if it isn't already real-valued.
+
+The return value is a tuple containing 1) the expression to optimise, and 2) a
+vector of matrices that will be required to be positive semidefinite. The
+first element of the vector is derived from the input moment matrix; any
+additional ones are derived from any additional inequality constraints
+provided.
+
+# Arguments
+
+- `expr`: the operator whose expectation value we want to optimise.
+- `moment`: the moment matrix
+- `eq`=[] and `ge=[]`: vectors of operators whose expectation values we want
+  to set equal to and lower bound by zero, respectively.
+"""
 function npa2sdp(expr, moment::Polynomial; eq=[], ge=[])
     # Reduce constraints to canonical form
     expr = real_rep(expr)
@@ -204,7 +253,7 @@ function sdp2jump_d(expr, ineqs;
     for m in mons
         c = expr[m]
         Fs = (ineq[m] for ineq in ineqs)
-        tr_term = sum(dot(F,Z)
+        tr_term = sum(dot(F, Z)
                       for (F, Z) in zip(Fs, Zs))
 
         @constraint(model, tr_term + s*c == 0)
@@ -223,6 +272,45 @@ function add_constraint!(model::Model, constraint)
     end
 end
 
+
+function jump_scalar_expr(expr, mons, v)
+    result = AffExpr(expr[Id])
+
+    for m in mons
+        add_to_expression!(result, expr[m], v[m])
+    end
+
+    return result
+end
+
+function jump_array_expr(expr, mons, v)
+    result = Array{AffExpr}(undef, size(expr)...)
+
+    cId = expr[Id]
+
+    for k in 1:length(result)
+        result[k] = AffExpr(cId[k])
+    end
+
+    for m in mons
+        vm = v[m]
+
+        for (i, j, c) in zip(findnz(expr[m])...)
+            add_to_expression!(result[i, j], c, vm)
+        end
+    end
+
+    return result
+end
+
+function jump_expr(expr, mons, v)
+    if isscalar(expr)
+        return jump_scalar_expr(expr, mons, v)
+    else
+        return jump_array_expr(expr, mons, v)
+    end
+end
+
 function sdp2jump(expr, ineqs;
                   sense=:maximise,
                   solver=default_solver,
@@ -233,11 +321,11 @@ function sdp2jump(expr, ineqs;
 
     @variable(model, v[mons])
 
-    objective = expr[Id] + sum(expr[m]*v[m] for m in mons)
+    objective = jump_expr(expr, mons, v)
     set_objective!(model, sense, objective)
 
     for ineq in ineqs
-        constraint = ineq[Id] + sum(ineq[m]*v[m] for m in mons)
+        constraint = jump_expr(ineq, mons, v)
         add_constraint!(model, constraint)
     end
 
@@ -257,7 +345,6 @@ function npa2jump(expr, level_or_moments; eq=[], ge=[], kw...)
     model = sdp2jump(expr, moments; kw...)
     return model
 end
-
 
 
 

@@ -195,7 +195,8 @@ end
 
 
 
-Base.zero(m::Monomial) = 0
+Base.zero(::Monomial) = 0
+Base.zero(::Type{Monomial}) = 0
 
 
 
