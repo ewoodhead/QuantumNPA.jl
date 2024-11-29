@@ -1,6 +1,13 @@
 # QuantumNPA
 
-Code to do NPA in Julia.
+Implementation of the NPA hierarchy
+[[arXiv:0803.4290 [quant-ph]](https://arxiv.org/abs/0803.4290)] in Julia.
+This is an algorithm that maps certain kinds of quantum optimisation problems
+that arise in Bell nonlocality, quantum cryptography, and quantum information
+theory to a sequence of increasingly accurate (but also increasingly
+demanding) semidefinite programming problems, which can then be handed to a
+solver. A simple example application is deriving an upper bound on the
+amount by which a Bell inequality can be violated in quantum physics.
 
 Installation:
 ```julia
