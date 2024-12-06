@@ -11,9 +11,13 @@ amount by which a Bell inequality can be violated in quantum physics.
 
 Installation:
 ```julia
-using Pkg; Pkg.add(url="https://github.com/ewoodhead/QuantumNPA.jl");
+using Pkg; Pkg.add("QuantumNPA")
 ```
-Load with:
+or
+```julia
+]add QuantumNPA
+```
+at the repl. Load with:
 ```julia
 using QuantumNPA
 ```
