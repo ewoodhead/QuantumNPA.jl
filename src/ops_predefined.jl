@@ -12,7 +12,7 @@ function parse_dichotomic(expr)
         name = expr.args[1]
         party = string(name)
         range = expr.args[2]
-        return :($(esc(name)) = dichotomic($party, $range))
+        return :($(esc(name)) = dichotomic($party, $(esc(range))))
     end
 end
 
