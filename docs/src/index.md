@@ -1,5 +1,6 @@
 # QuantumNPA.jl
 
+Maximise CHSH:
 ```julia-repl
 julia> using QuantumNPA
 
