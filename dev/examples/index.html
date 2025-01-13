@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/><title>Examples · QuantumNPA.jl</title><meta name="title" content="Examples · QuantumNPA.jl"/><meta property="og:title" content="Examples · QuantumNPA.jl"/><meta property="twitter:title" content="Examples · QuantumNPA.jl"/><meta name="description" content="Documentation for QuantumNPA.jl."/><meta property="og:description" content="Documentation for QuantumNPA.jl."/><meta property="twitter:description" content="Documentation for QuantumNPA.jl."/><script data-outdated-warner src="../assets/warner.js"></script><link href="https://cdnjs.cloudflare.com/ajax/libs/lato-font/3.0.0/css/lato-font.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/juliamono/0.050/juliamono.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/fontawesome.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/solid.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/brands.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.8/katex.min.css" rel="stylesheet" type="text/css"/><script>documenterBaseURL=".."</script><script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.6/require.min.js" data-main="../assets/documenter.js"></script><script src="../search_index.js"></script><script src="../siteinfo.js"></script><script src="../../versions.js"></script><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-mocha.css" data-theme-name="catppuccin-mocha"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-macchiato.css" data-theme-name="catppuccin-macchiato"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-frappe.css" data-theme-name="catppuccin-frappe"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-latte.css" data-theme-name="catppuccin-latte"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/documenter-dark.css" data-theme-name="documenter-dark" data-theme-primary-dark/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/documenter-light.css" data-theme-name="documenter-light" data-theme-primary/><script src="../assets/themeswap.js"></script></head><body><div id="documenter"><nav class="docs-sidebar"><div class="docs-package-name"><span class="docs-autofit"><a href="../">QuantumNPA.jl</a></span></div><button class="docs-search-query input is-rounded is-small is-clickable my-2 mx-auto py-1 px-2" id="documenter-search-query">Search docs (Ctrl + /)</button><ul class="docs-menu"><li><a class="tocitem" href="../">Home</a></li><li class="is-active"><a class="tocitem" href>Examples</a></li><li><a class="tocitem" href="../npa/">NPA</a></li></ul><div class="docs-version-selector field has-addons"><div class="control"><span class="docs-label button is-static is-size-7">Version</span></div><div class="docs-selector control is-expanded"><div class="select is-fullwidth is-size-7"><select id="documenter-version-selector"></select></div></div></div></nav><div class="docs-main"><header class="docs-navbar"><a class="docs-sidebar-button docs-navbar-link fa-solid fa-bars is-hidden-desktop" id="documenter-sidebar-button" href="#"></a><nav class="breadcrumb"><ul class="is-hidden-mobile"><li class="is-active"><a href>Examples</a></li></ul><ul class="is-hidden-tablet"><li class="is-active"><a href>Examples</a></li></ul></nav><div class="docs-right"><a class="docs-navbar-link" href="https://github.com/ewoodhead/QuantumNPA.jl" title="View the repository on GitHub"><span class="docs-icon fa-brands"></span><span class="docs-label is-hidden-touch">GitHub</span></a><a class="docs-navbar-link" href="https://github.com/ewoodhead/QuantumNPA.jl/blob/main/docs/src/examples.md" title="Edit source on GitHub"><span class="docs-icon fa-solid"></span></a><a class="docs-settings-button docs-navbar-link fa-solid fa-gear" id="documenter-settings-button" href="#" title="Settings"></a><a class="docs-article-toggle-button fa-solid fa-chevron-up" id="documenter-article-toggle-button" href="javascript:;" title="Collapse all docstrings"></a></div></header><article class="content" id="documenter-page"><h1 id="Examples"><a class="docs-heading-anchor" href="#Examples">Examples</a><a id="Examples-1"></a><a class="docs-heading-anchor-permalink" href="#Examples" title="Permalink"></a></h1><p>Maximise CHSH at level 2 of the hierarchy:</p><pre><code class="language-julia-repl hljs">julia&gt; @dichotomic A1 A2 B1 B2;
+
+julia&gt; S = A1*(B1 + B2) + A2*(B1 - B2)
+A1 B1 + A1 B2 + A2 B1 - A2 B2
+
+julia&gt; npa_max(S, 2)
+2.828227712681755</code></pre><p>Maximise Svetlichny at level <span>$1 + A B + A C + B C$</span>:</p><pre><code class="language-julia-repl hljs">julia&gt; @dichotomic A[1:2] B[1:2] C[1:2];
+
+julia&gt; E(x,y,z) = A[x]*B[y]*C[z]
+E (generic function with 1 method)
+
+julia&gt; S = -E(1,1,1) + E(1,1,2) + E(1,2,1) + E(1,2,2) + E(2,1,1) + E(2,1,2) + E(2,2,1) - E(2,2,2)
+-A1 B1 C1 + A1 B1 C2 + A1 B2 C1 + A1 B2 C2 + A2 B1 C1 + A2 B1 C2 + A2 B2 C1 - A2 B2 C2
+
+julia&gt; npa_max(S, &quot;1 + A B + A C + B C&quot;)
+5.656854315137034</code></pre><p>(note that the spaces e.g. between A and B are necessary in the string, since party labels go from A to Z then AA to ZZ then AAA to ZZZ...)</p><p>Maximise a modified CHSH at level <span>$1 + A B + A^{2} B$</span>:</p><pre><code class="language-julia-repl hljs">julia&gt; npa_max(0.3 * A1 + 0.6 * A1*(B1 + B2) + A2*(B1 - B2), &quot;1 + A B + A^2 B&quot;)
+2.3584761820283977</code></pre><p>You can specify both equality and inequality arguments using the <code>eq</code> and <code>ge</code> keyword arguments. These should be lists of operators whose expectation values you want, respectively, to set to and lower bound by zero. For example, to maximise <code>&lt;A1&gt;</code> subject to <code>&lt;A1*(B1 + B2)&gt; = 1.4</code> and <code>&lt;A2*(B1 - B2)&gt; = 1.4</code>:</p><pre><code class="language-julia-repl hljs">julia&gt; npa_max(A1, 2, eq=[A1*(B1 + B2) - 1.4*Id, A2*(B1 - B2) - 1.4*Id])
+0.19800616634180992</code></pre><p>Maximise <code>&lt;A1 + A2&gt;</code> subject to <code>&lt;A1 + 2*A2&gt; &lt;= 1</code> and <code>&lt;2*A1 + A2&gt; &lt;= 1</code>:</p><pre><code class="language-julia-repl hljs">julia&gt; npa_max(A1 + A2, 1, ge=[Id - A1 - 2*A2, Id - 2*A1 - A2])
+0.6666666597867417</code></pre><p>Maximise <code>&lt;A1 + A2&gt;</code> subject to <code>&lt;A1&gt; = &lt;A2&gt;</code> and <code>&lt;A1 + 2*A2&gt; &lt;= 1</code>:</p><pre><code class="language-julia-repl hljs">julia&gt; npa_max(A1 + A2, 1, eq=[A1 - A2], ge=[1 - A1 - 2*A2])
+0.666642228695571</code></pre><p>The above examples all use dichotomic variables, but projectors are also supported. Here we maximise the CH74 form of CHSH:</p><pre><code class="language-julia-repl hljs">julia&gt; PA11, PA12 = projector(1,1,1:2);
+
+julia&gt; PB11, PB12 = projector(2,1,1:2);
+
+julia&gt; npa_max(-PA11 - PB11 + PA11*(PB11 + PB12) + PA12*(PB11 - PB12), 1)
+0.20701116471401693
+
+julia&gt; (sqrt(2) - 1)/2
+0.20710678118654757</code></pre><p>Maximise CGLMP with <span>$d=3$</span> at level <span>$1 + A B$</span>:</p><pre><code class="language-julia-repl hljs">julia&gt; npa_max(cglmp(3), &quot;1 + A B&quot;)
+2.914945976226541
+
+julia&gt; 1 + sqrt(11/3)
+2.914854215512676</code></pre><p>This uses a function <code>cglmp()</code> already defined in <code>qnpa.jl</code> to construct the CGLMP operator.</p><p>Maximise the global guessing probability <span>$P_{\text{guess}}(A1,B1|E)$</span> in the CHSH setting using full statistics:</p><pre><code class="language-julia hljs"># Create projectors. The keyword argument &#39;full=true&#39; means that the
+# operator corresponding to the highest-numbered output is directly set to
+# the identity minus the other ones. For example,
+#
+#   PA[2,1] = Id - PA[1,1]
+#
+# and
+#
+#   PE[4] = Id - PE[1] - PE[2] - PE[3]
+#
+# This is meant to make working in the Collins-Gisin projection (which the
+# NPA code uses) more convenient.
+PA = projector(1, 1:2, 1:2, full=true)
+PB = projector(2, 1:2, 1:2, full=true)
+PE = projector(5, 1:4, 1, full=true)
+
+# CHSH = 2*sqrt(2) * p
+p = 0.9
+
+# Expectation value of G is the probability that Eve correctly guesses
+# Alice&#39;s and Bob&#39;s joint outcome.
+G = sum(PA[a,1] * PB[b,1] * PE[2*(a-1) + b]
+        for a in 1:2 for b in 1:2)
+
+# Ideal CHSH-violating correlations mixed with noise. N.B., the actual
+# constraints imposed are on the expectation values of the operators
+# in the array.
+constraints = [PA[1,1] - 0.5*Id,
+               PA[1,2] - 0.5*Id,
+               PB[1,1] - 0.5*Id,
+               PB[1,2] - 0.5*Id,
+               PA[1,1]*PB[1,1] - 0.25*(1 + p/sqrt(2))*Id,
+               PA[1,1]*PB[1,2] - 0.25*(1 + p/sqrt(2))*Id,
+               PA[1,2]*PB[1,1] - 0.25*(1 + p/sqrt(2))*Id,
+               PA[1,2]*PB[1,2] - 0.25*(1 - p/sqrt(2))*Id]
+
+# This returns about 0.7467 for p = 0.9 at level 2 using the default SCS
+# solver.
+npa_max(G, 2, eq=constraints)</code></pre><p>QuantumNPA calls the SCS solver by default (since it doesn&#39;t require a license) to solve the NPA relaxation of a quantum optimisation problem, but a keyword argument <code>solver</code> lets you specify a different one. E.g., solve a problem using Mosek (which you need a license file to use):</p><pre><code class="language-julia-repl hljs">julia&gt; using MosekTools
+
+julia&gt; npa_max(S, 2, solver=Mosek.Optimizer)
+2.82842711211242</code></pre><p>You can also change the default solver if you don&#39;t want to specify it every time, e.g.,</p><pre><code class="language-julia-repl hljs">julia&gt; set_solver!(Mosek.Optimizer)</code></pre><p>If you want to construct a JuMP model and solve it separately:</p><pre><code class="language-julia-repl hljs">julia&gt; model = npa2jump(S, &quot;1 + A B&quot;, solver=SCS.Optimizer)
+A JuMP Model
+Minimization problem with:
+Variables: 45
+Objective function type: AffExpr
+`AffExpr`-in-`MathOptInterface.EqualTo{Float64}`: 16 constraints
+`Vector{VariableRef}`-in-`MathOptInterface.PositiveSemidefiniteConeTriangle`: 1 constraint
+Model mode: AUTOMATIC
+CachingOptimizer state: EMPTY_OPTIMIZER
+Solver name: SCS
+
+julia&gt; optimize!(model)
+------------------------------------------------------------------
+               SCS v3.2.0 - Splitting Conic Solver
+        (c) Brendan O&#39;Donoghue, Stanford University, 2012
+------------------------------------------------------------------
+problem:  variables n: 45, constraints m: 61
+cones:    z: primal zero / dual free vars: 16
+          s: psd vars: 45, ssize: 1
+settings: eps_abs: 1.0e-04, eps_rel: 1.0e-04, eps_infeas: 1.0e-07
+          alpha: 1.50, scale: 1.00e-01, adaptive_scale: 1
+          max_iters: 100000, normalize: 1, rho_x: 1.00e-06
+          acceleration_lookback: 10, acceleration_interval: 10
+lin-sys:  sparse-direct
+          nnz(A): 81, nnz(P): 0
+------------------------------------------------------------------
+ iter | pri res | dua res |   gap   |   obj   |  scale  | time (s)
+------------------------------------------------------------------
+     0| 2.22e+01  1.00e+00  2.00e+02 -9.98e+01  1.00e-01  1.40e-04 
+    75| 1.51e-05  5.94e-08  5.35e-08  2.83e+00  1.00e-01  3.10e-03 
+------------------------------------------------------------------
+status:  solved
+timings: total: 3.48e-03s = setup: 3.66e-04s + solve: 3.11e-03s
+         lin-sys: 2.47e-04s, cones: 2.58e-03s, accel: 1.57e-05s
+------------------------------------------------------------------
+objective = 2.828427
+------------------------------------------------------------------
+
+julia&gt; objective_value(model)
+2.8284273129779325</code></pre><p>If you call <code>npa2jump()</code> without the <code>solver</code> keyword argument then a solver isn&#39;t assigned, and you will have to assign one to the JuMP model using JuMP&#39;s <code>set_optimizer()</code> function. You can also suppress the output of the solver by either calling <code>npa2jump()</code> with the keyword argument <code>verbose</code> set to false or by using JuMP&#39;s <code>set_silent()</code> function on the returned JuMP model.</p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../">« Home</a><a class="docs-footer-nextpage" href="../npa/">NPA »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.8.0 on <span class="colophon-date" title="Monday 13 January 2025 18:57">Monday 13 January 2025</span>. Using Julia version 1.11.2.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
