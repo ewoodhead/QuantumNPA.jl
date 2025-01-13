@@ -1,3 +1,7 @@
 [deps]
 Documenter = "e30172f5-a6a5-5a46-863b-614d45cd2de4"
 QuantumNPA = "5cd12e4b-1487-4eb2-a245-40f3146b84a8"
+
+[compat]
+Documenter = "1.8"
+QuantumNPA = "1"
