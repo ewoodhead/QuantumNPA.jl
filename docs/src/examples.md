@@ -1,7 +1,5 @@
 # Examples
 
-These are copied from the readme page.
-
 Maximise CHSH at level 2 of the hierarchy:
 ```julia-repl
 julia> @dichotomic A1 A2 B1 B2;
