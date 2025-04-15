@@ -12,7 +12,7 @@ SCS = "c946c3f1-0d1f-5ce8-9dea-7daa1f7e2d13"
 SparseArrays = "2f01184e-e22b-5df5-ae63-d93ebab69eaf"
 
 [compat]
-BlockDiagonals = "0.1.41"
+BlockDiagonals = "0.1.41 - 0.2"
 Combinatorics = "1.0"
 JuMP = "1.23"
 SCS = "2.0"
