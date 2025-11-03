@@ -157,8 +157,8 @@ The main purpose of this function is to eliminate equality constraints from
 the input problem. This function also takes a representation of the real part
 of the input problem, if it isn't already real-valued.
 
-The return value is a tuple containing 1) the expression to optimise, and 2) a
-vector of matrices that will be required to be positive semidefinite. The
+The return value is a tuple containing 1) the expression to optimise, and 2)
+a vector of matrices that will be required to be positive semidefinite. The
 first element of the vector is derived from the input moment matrix; any
 additional ones are derived from any additional inequality constraints
 provided.
@@ -237,10 +237,12 @@ end
 
 
 
-# This is required so that dot used in sdp2jump_d has acceptable performance
-# Made more specific (Matrix instead of AbstractMatrix) to avoid ambiguity in Julia 1.12
+# This is required so that dot used in sdp2jump_d has acceptable performance.
+# Made more specific (Matrix instead of AbstractMatrix) to avoid ambiguity in
+# Julia 1.12
 function LinearAlgebra.dot(A::SparseMatrixCSC,
-        B::Symmetric{<:JuMP._MA.AbstractMutable, Matrix{<:JuMP._MA.AbstractMutable}})
+                           B::Symmetric{<:JuMP._MA.AbstractMutable,
+                                        Matrix{<:JuMP._MA.AbstractMutable}})
     acc = zero(eltype(B))
 
     for j in 1:size(A, 2)
@@ -252,7 +254,8 @@ function LinearAlgebra.dot(A::SparseMatrixCSC,
     return acc
 end
 
-function LinearAlgebra.dot(A::Symmetric{<:JuMP._MA.AbstractMutable,Matrix{<:JuMP._MA.AbstractMutable}},
+function LinearAlgebra.dot(A::Symmetric{<:JuMP._MA.AbstractMutable,
+                                        Matrix{<:JuMP._MA.AbstractMutable}},
                            B::SparseMatrixCSC)
     return dot(B, A)
 end
