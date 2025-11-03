@@ -1,7 +1,7 @@
 name = "QuantumNPA"
 uuid = "5cd12e4b-1487-4eb2-a245-40f3146b84a8"
 authors = ["Erik Woodhead"]
-version = "0.1.1"
+version = "0.1.2"
 
 [deps]
 BlockDiagonals = "0a1fb500-61f7-11e9-3c65-f5ef3456f9f0"
