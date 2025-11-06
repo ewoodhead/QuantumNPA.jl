@@ -75,7 +75,7 @@ julia> npa_max(A1 + A2, 1, ge=[Id - A1 - 2*A2, Id - 2*A1 - A2])
 ```
 Maximise `<A1 + A2>` subject to `<A1> = <A2>` and `<A1 + 2*A2> <= 1 `:
 ```julia-repl
-julia> npa_max(A1 + A2, 1, eq=[A1 - A2], ge=[1 - A1 - 2*A2])
+julia> npa_max(A1 + A2, 1, eq=[A1 - A2], ge=[Id - A1 - 2*A2])
 0.666642228695571
 ```
 
