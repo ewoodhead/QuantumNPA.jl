@@ -300,7 +300,7 @@ function sdp2jump_d(expr, ineqs;
 
     Ids = (ineq[Id] for ineq in ineqs)
     objective = (s*sum(dot(m,z)
-                     for (m, z) in zip(Ids, Zs))
+                       for (m, z) in zip(Ids, Zs))
                  + expr[Id])
 
     set_objective!(model, !maximise, objective)
