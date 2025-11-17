@@ -445,7 +445,7 @@ end
 
 function Base.:*(c::Coefficient, p::Polynomial)
     if iszero(c)
-        return 0
+        return Polynomial()
     else
         pairs = ((c*cp, m) for (cp, m) in p)
         return Polynomial((c, m) for (c, m) in pairs if !iszero(c))
@@ -454,7 +454,7 @@ end
 
 function Base.:*(p::Polynomial, c::Coefficient)
     if iszero(c)
-        return 0
+        return Polynomial()
     else
         pairs = ((cp*c, m) for (cp, m) in p)
         return Polynomial((c, m) for (c, m) in pairs if !iszero(c))
