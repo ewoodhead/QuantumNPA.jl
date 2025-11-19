@@ -122,6 +122,10 @@ function csgn(x::Real, p::String = "+", m::String = "-")
 end
 
 function sgnnum(x::Number, p::String = "+", m::String = "-")
+    if !((x == 0) isa Bool)
+        return (p, "($x)")
+    end
+
     xr = real(x)
     xi = imag(x)
 
@@ -149,9 +153,9 @@ end
 firstcoeff2string(x) = "$x "
 
 function firstcoeff2string(x::Number)
-    if x == 1
+    if isone(x)
         return ""
-    elseif x == -1
+    elseif isone(-x)
         return "-"
     else
         (s, xs) = sgnnum(x, "", "-")
@@ -162,9 +166,9 @@ end
 coeff2string(x) = " + $x "
 
 function coeff2string(x::Number)
-    if x == 1
+    if isone(x)
         return " + "
-    elseif x == -1
+    elseif isone(-x)
         return " - "
     else
         (s, xs) = sgnnum(x)
